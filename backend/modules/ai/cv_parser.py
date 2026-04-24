@@ -4,9 +4,18 @@ Input  : texte brut du CV (extrait via PyMuPDF)
 Output : JSON {nom, email, telephone, competences, experience_years,
                education, langues, score_pertinence, resume}
 """
-import json
+import io
 import logging
-import fitz  # PyMuPDF
+try:
+    from pypdf import PdfReader  # Vercel-compatible (pure Python)
+except ImportError:
+    try:
+        import fitz  # PyMuPDF fallback (local dev)
+        PdfReader = None
+    except ImportError:
+        PdfReader = None
+        fitz = None
+
 from typing import Optional
 from backend.modules.ai.groq_client import call_groq
 
@@ -30,17 +39,24 @@ Le score_pertinence est entre 0-100 et évalue la qualité globale du profil."""
 
 
 async def extract_text_from_pdf(file_bytes: bytes) -> str:
-    """Extrait le texte brut d'un PDF via PyMuPDF."""
+    """Extrait le texte brut d'un PDF (pypdf ou PyMuPDF selon l'environnement)."""
     try:
-        doc = fitz.open(stream=file_bytes, filetype="pdf")
-        text = ""
-        for page in doc:
-            text += page.get_text()
-        doc.close()
+        if PdfReader:
+            # Mode Vercel : pypdf (pure Python)
+            reader = PdfReader(io.BytesIO(file_bytes))
+            text = "\n".join(page.extract_text() or "" for page in reader.pages)
+        elif fitz:
+            # Mode local : PyMuPDF
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            text = "".join(page.get_text() for page in doc)
+            doc.close()
+        else:
+            return "Impossible d'extraire le texte PDF — aucun parser disponible."
         return text.strip()
     except Exception as e:
         logger.error(f"Erreur extraction PDF: {e}")
         raise
+
 
 
 async def parse_cv(cv_text: str, job_requirements: Optional[str] = None) -> dict:
