@@ -13,13 +13,20 @@ logger = logging.getLogger(__name__)
 
 # ── Supabase ──────────────────────────────────────────────
 SUPABASE_URL: str = os.environ.get("SUPABASE_URL", "")
-SUPABASE_SERVICE_KEY: str = os.environ.get("SUPABASE_SERVICE_KEY", "")
+# Accepte les deux noms (compatibilité Vercel et local)
+SUPABASE_SERVICE_KEY: str = (
+    os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or
+    os.environ.get("SUPABASE_SERVICE_KEY") or ""
+)
 SUPABASE_ANON_KEY: str = os.environ.get("SUPABASE_ANON_KEY", "")
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-    raise RuntimeError("SUPABASE_URL et SUPABASE_SERVICE_KEY sont requis dans .env")
+    logger.error("SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY sont requis dans .env")
+    # Ne pas lever d'exception au démarrage pour éviter le crash Vercel
+    supabase_admin = None
+else:
+    supabase_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-supabase_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
 # ── Groq ──────────────────────────────────────────────────
 GROQ_API_KEY: str = os.environ.get("GROQ_API_KEY", "")
