@@ -10,23 +10,39 @@ logger = logging.getLogger(__name__)
 
 class DocumentService:
     async def upload_document(self, file_bytes: bytes, file_name: str, content_type: str = "application/pdf") -> str:
-        """Sauvegarde le fichier localement dans backend/static/documents."""
+        """Sauvegarde le fichier localement (dev) ou sur Supabase (Vercel/Prod)."""
         import os
+        from backend.config import supabase_admin
+        
+        is_prod = os.environ.get("VERCEL") or os.environ.get("PRODUCTION")
+        
+        if not is_prod:
+            try:
+                # Stockage Local (Développement)
+                save_dir = "backend/static/documents"
+                os.makedirs(save_dir, exist_ok=True)
+                file_path_local = f"{uuid.uuid4().hex[:8]}_{file_name}"
+                full_path = os.path.join(save_dir, file_path_local)
+                with open(full_path, "wb") as f:
+                    f.write(file_bytes)
+                return f"http://localhost:8000/generated_docs/{file_path_local}"
+            except Exception as e:
+                logger.error(f"Erreur sauvegarde locale: {str(e)}")
+                # Si erreur locale, on tente quand même Supabase en fallback
+                pass
+
+        # Stockage Cloud (Supabase)
         try:
-            # S'assurer que le dossier existe
-            save_dir = "backend/static/documents"
-            os.makedirs(save_dir, exist_ok=True)
-            
-            file_path_local = f"{uuid.uuid4().hex[:8]}_{file_name}"
-            full_path = os.path.join(save_dir, file_path_local)
-            
-            with open(full_path, "wb") as f:
-                f.write(file_bytes)
-            
-            # URL locale (servie par FastAPI via /generated_docs)
-            return f"http://localhost:8000/generated_docs/{file_path_local}"
+            file_path_cloud = f"generated/{uuid.uuid4().hex[:8]}_{file_name}"
+            # Utiliser le bucket 'documents' (Assurez-vous qu'il est créé dans Supabase)
+            res = supabase_admin.storage.from_("documents").upload(
+                path=file_path_cloud,
+                file=file_bytes,
+                file_options={"content-type": content_type}
+            )
+            return supabase_admin.storage.from_("documents").get_public_url(file_path_cloud)
         except Exception as e:
-            logger.error(f"Erreur sauvegarde locale document: {str(e)}")
+            logger.error(f"Erreur Supabase Storage: {str(e)}")
             raise e
 
     async def generate_and_store_approval_pdf(self, approval_id: str, tenant_id: str) -> str | None:
