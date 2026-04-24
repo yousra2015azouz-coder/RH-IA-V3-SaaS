@@ -124,20 +124,24 @@ app.include_router(error_router, prefix="/api/v1")
 app.include_router(documents_router, prefix="/api/v1")
 
 # ── STATIC FILES & FRONTEND ────────────────────────────────
-frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
+# Chemin absolu compatible Vercel et local
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+frontend_dir = os.path.join(BASE_DIR, "frontend")
+
 if os.path.exists(frontend_dir):
     app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
 
-# Documents générés (Doc 5.1 & 5.2) — Publics pour visualisation directe
-os.makedirs("backend/static/documents", exist_ok=True)
-app.mount("/generated_docs", StaticFiles(directory="backend/static/documents"), name="generated_docs")
+# Documents générés — toujours servis localement (fallback Supabase en prod)
+docs_dir = os.path.join(BASE_DIR, "backend", "static", "documents")
+os.makedirs(docs_dir, exist_ok=True)
+app.mount("/generated_docs", StaticFiles(directory=docs_dir), name="generated_docs")
 
 @app.get("/")
 async def serve_index():
     path = os.path.join(frontend_dir, "public", "index.html")
     if os.path.exists(path):
         return FileResponse(path)
-    return {"message": "SaaS RH V3 — Frontend non trouvé"}
+    return {"message": "SaaS RH V3 en ligne — Frontend introuvable"}
 
 @app.get("/{filename}.html")
 async def serve_html(filename: str):
