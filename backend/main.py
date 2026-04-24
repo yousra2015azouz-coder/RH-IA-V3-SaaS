@@ -153,8 +153,23 @@ async def serve_html(filename: str):
 # ── LIFECYCLE ──────────────────────────────────────────────
 @app.on_event("startup")
 async def startup_event():
-    register_all_handlers()
-    start_scheduler()
+    try:
+        register_all_handlers()
+        logger.info("[EventBus] Handlers enregistrés.")
+    except Exception as e:
+        logger.warning(f"[EventBus] Erreur init handlers: {e}")
+
+    # APScheduler incompatible avec Vercel serverless — désactivé en prod
+    is_vercel = os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV")
+    if not is_vercel:
+        try:
+            start_scheduler()
+            logger.info("[Scheduler] Démarré en mode local.")
+        except Exception as e:
+            logger.warning(f"[Scheduler] Erreur démarrage: {e}")
+    else:
+        logger.info("[Scheduler] Désactivé (mode Vercel serverless).")
+
     logger.info("SaaS RH V3 démarré avec succès.")
 
 @app.get("/health")
