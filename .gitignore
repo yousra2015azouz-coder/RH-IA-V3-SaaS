@@ -1,0 +1,9 @@
+node_modules/
+__pycache__/
+.env
+.venv/
+venv/
+backend/static/documents/*
+*.pyc
+.DS_Store
+.gemini/

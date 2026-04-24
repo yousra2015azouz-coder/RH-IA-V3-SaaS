@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Candidats | RH IA Platform</title>
+    <link rel="stylesheet" href="/static/assets/css/theme.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar glass">
+            <div class="logo" style="font-size: 1.5rem; font-weight: 800; margin-bottom: 3rem; color: var(--primary-light);">RH-IA V3</div>
+            <nav style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <a href="index.html" class="btn btn-outline" style="width: 100%;">Tableau de bord</a>
+                <a href="jobs.html" class="btn btn-outline" style="width: 100%;">Offres d'emploi</a>
+                <a href="candidates.html" class="btn btn-primary" style="width: 100%;">Candidats</a>
+                <a href="approvals.html" class="btn btn-outline" style="width: 100%;">Approbations</a>
+            </nav>
+            <div style="margin-top: auto;">
+                <button onclick="authService.logout()" class="btn btn-outline" style="width: 100%;">Déconnexion</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <header class="header">
+                <h1>Pipeline des Candidats</h1>
+                <div style="display: flex; gap: 10px;">
+                    <select id="stage-filter" class="form-control" style="width: 200px;" onchange="loadCandidates()">
+                        <option value="">Tous les stages</option>
+                        <option value="applied">Nouveaux</option>
+                        <option value="chatbot">Chatbot</option>
+                        <option value="interview">Entretien</option>
+                        <option value="evaluation">Évaluation</option>
+                        <option value="approved">Approuvés</option>
+                    </select>
+                </div>
+            </header>
+
+            <div class="glass" style="padding: 1.5rem;">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Candidat</th>
+                                <th>Offre</th>
+                                <th>Score IA</th>
+                                <th>Stage Actuel</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="candidates-list">
+                            <!-- Injected -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/assets/js/api.js"></script>
+    <script src="/static/assets/js/auth.js"></script>
+    <script>
+        async function loadCandidates() {
+            const stage = document.getElementById("stage-filter").value;
+            try {
+                const data = await apiClient.get(`/candidates${stage ? '?stage=' + stage : ''}`);
+                const list = document.getElementById("candidates-list");
+                
+                list.innerHTML = data.candidates.map(c => `
+                    <tr>
+                        <td>
+                            <div style="font-weight: 600;">${c.first_name} ${c.last_name}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">${c.email}</div>
+                        </td>
+                        <td><span style="font-size: 0.9rem;">${c.job_offers.title}</span></td>
+                        <td>
+                            <div class="ai-score-tag" style="background: ${getScoreColor(c.ai_score)}; text-align: center; width: 50px;">
+                                ${c.ai_score || 'N/A'}%
+                            </div>
+                        </td>
+                        <td><span class="badge badge-warning">${c.pipeline_stage}</span></td>
+                        <td style="font-size: 0.85rem; color: var(--text-muted);">${new Date(c.created_at).toLocaleDateString()}</td>
+                        <td>
+                            <button onclick="viewCandidate('${c.id}')" class="btn btn-outline" style="padding: 4px 10px; font-size: 0.8rem;">Détails</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (e) { console.error(e); }
+        }
+
+        function getScoreColor(score) {
+            if (!score) return '#334155';
+            if (score >= 80) return '#10B981';
+            if (score >= 60) return '#3B82F6';
+            if (score >= 40) return '#F59E0B';
+            return '#EF4444';
+        }
+
+        function viewCandidate(id) {
+            // Logique pour voir les détails ou avancer le stage
+            alert("Détails du candidat " + id + " - Fonctionnalité en cours de déploiement");
+        }
+
+        loadCandidates();
+    </script>
+</body>
+</html>

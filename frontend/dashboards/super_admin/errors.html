@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring Erreurs | RH IA Platform</title>
+    <link rel="stylesheet" href="/static/assets/css/theme.css">
+    <style>
+        .error-card {
+            margin-bottom: 1rem;
+            border-left: 4px solid var(--danger);
+        }
+        .level-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .level-error { background: rgba(239, 68, 68, 0.2); color: #F87171; }
+        .level-warning { background: rgba(245, 158, 11, 0.2); color: #FBBF24; }
+        .level-info { background: rgba(59, 130, 246, 0.2); color: #60A5FA; }
+        
+        .traceback {
+            background: #020617;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.8rem;
+            margin-top: 1rem;
+            overflow-x: auto;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="main-content" style="margin-left: 0; width: 100%; max-width: 1200px; margin: 0 auto;">
+            <header class="header">
+                <div>
+                    <h1>Monitoring Système & Erreurs</h1>
+                    <p style="color: var(--text-muted);">Suivi en temps réel des exceptions backend</p>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <button onclick="loadErrors()" class="btn btn-outline">Rafraîchir</button>
+                    <button onclick="clearAll()" class="btn btn-outline" style="border-color: var(--danger); color: var(--danger);">Vider les logs</button>
+                    <a href="../directeur_rh/index.html" class="btn btn-primary">Retour Dashboard</a>
+                </div>
+            </header>
+
+            <div id="error-list">
+                <!-- Erreurs injectées ici -->
+                <p style="text-align: center; padding: 3rem; color: var(--text-muted);">Chargement des logs...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/assets/js/api.js"></script>
+    <script>
+        async function loadErrors() {
+            try {
+                const data = await apiClient.get("/errors?limit=50");
+                const list = document.getElementById("error-list");
+                
+                if (data.errors.length === 0) {
+                    list.innerHTML = `<div class="glass" style="padding: 3rem; text-align: center; color: var(--success);">Aucune erreur détectée. Système stable. ✅</div>`;
+                    return;
+                }
+
+                list.innerHTML = data.errors.map(err => `
+                    <div class="glass error-card" style="padding: 1.5rem; border-left-color: ${getLevelColor(err.level)};">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div>
+                                <span class="level-badge level-${err.level.toLowerCase()}">${err.level}</span>
+                                <span style="color: var(--text-muted); font-size: 0.8rem; margin-left: 10px;">${new Date(err.created_at).toLocaleString()}</span>
+                                <h3 style="margin: 0.5rem 0;">${err.message}</h3>
+                                <p style="font-size: 0.9rem; color: var(--text-muted);">
+                                    <b>Module:</b> ${err.module} | <b>Endpoint:</b> ${err.endpoint}
+                                </p>
+                            </div>
+                            <button onclick="toggleTrace('${err.id}')" class="btn btn-outline" style="padding: 4px 10px; font-size: 0.8rem;">Détails / Trace</button>
+                        </div>
+                        <div id="trace-${err.id}" class="traceback">
+                            <p style="color: var(--primary-light); margin-bottom: 0.5rem;">Traceback:</p>
+                            <pre>${err.traceback}</pre>
+                            <p style="color: var(--primary-light); margin-top: 1rem;">Request Data:</p>
+                            <pre>${JSON.stringify(err.request_data, null, 2)}</pre>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                document.getElementById("error-list").innerHTML = `<p style="color: var(--danger);">Erreur lors de la récupération des logs.</p>`;
+            }
+        }
+
+        function getLevelColor(level) {
+            if (level === 'CRITICAL') return '#EF4444';
+            if (level === 'ERROR') return '#F87171';
+            if (level === 'WARNING') return '#FBBF24';
+            return '#60A5FA';
+        }
+
+        function toggleTrace(id) {
+            const el = document.getElementById('trace-' + id);
+            el.style.display = el.style.display === 'block' ? 'none' : 'block';
+        }
+
+        async function clearAll() {
+            if (confirm("Voulez-vous vraiment vider tous les logs d'erreurs ?")) {
+                await apiClient.delete("/errors");
+                loadErrors();
+            }
+        }
+
+        loadErrors();
+        // Auto-refresh toutes les 30 secondes
+        setInterval(loadErrors, 30000);
+    </script>
+</body>
+</html>

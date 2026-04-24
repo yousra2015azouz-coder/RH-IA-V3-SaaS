@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Approbations | RH IA Platform</title>
+    <link rel="stylesheet" href="/static/assets/css/theme.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar glass">
+            <div class="logo" style="font-size: 1.5rem; font-weight: 800; margin-bottom: 3rem; color: var(--primary-light);">RH-IA V3</div>
+            <nav style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <a href="index.html" class="btn btn-outline" style="width: 100%;">Tableau de bord</a>
+                <a href="jobs.html" class="btn btn-outline" style="width: 100%;">Offres d'emploi</a>
+                <a href="candidates.html" class="btn btn-outline" style="width: 100%;">Candidats</a>
+                <a href="approvals.html" class="btn btn-primary" style="width: 100%;">Approbations</a>
+            </nav>
+            <div style="margin-top: auto;">
+                <button onclick="authService.logout()" class="btn btn-outline" style="width: 100%;">Déconnexion</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <header class="header">
+                <h1>Demandes d'Approbation</h1>
+                <button onclick="openRequestModal()" class="btn btn-primary">+ Nouvelle Demande</button>
+            </header>
+
+            <div class="glass" style="padding: 1.5rem;">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Candidat</th>
+                                <th>Poste</th>
+                                <th>Salaire Net</th>
+                                <th>Statut Workflow</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="approvals-list">
+                            <!-- Injected -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Nouvelle Demande -->
+    <div id="modal-request" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
+        <div class="glass" style="width:600px; padding:2rem; max-height:90vh; overflow-y:auto;">
+            <h2>Initier une Approbation</h2>
+            <form id="approval-form" style="margin-top: 1.5rem;">
+                <div class="form-group">
+                    <label>ID Candidat (externe)</label>
+                    <input type="text" id="candidate_id" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>ID Offre d'emploi</label>
+                    <input type="text" id="job_offer_id" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Nom complet du collaborateur</label>
+                    <input type="text" id="nom_collab" class="form-control" required>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label>Salaire de base (Brut)</label>
+                        <input type="number" id="base_salary" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Date d'embauche prévue</label>
+                        <input type="date" id="hire_date" class="form-control" required>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1; justify-content: center;">Lancer le workflow</button>
+                    <button type="button" onclick="closeModal()" class="btn btn-outline">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/assets/js/api.js"></script>
+    <script src="/static/assets/js/auth.js"></script>
+    <script>
+        async function loadApprovals() {
+            try {
+                const data = await apiClient.get("/approval");
+                const list = document.getElementById("approvals-list");
+                
+                list.innerHTML = data.approvals.map(a => `
+                    <tr>
+                        <td><b>${a.nom_collaborateur}</b></td>
+                        <td>${a.job_offers ? a.job_offers.title : 'N/A'}</td>
+                        <td>${(a.salaire_mensuel_net || 0).toLocaleString()} MAD</td>
+                        <td>
+                            <span class="badge ${getStatusBadge(a.status)}">${a.status.replace('_', ' ').toUpperCase()}</span>
+                        </td>
+                        <td>
+                            ${a.pdf_url ? `<a href="${a.pdf_url}" target="_blank" class="btn btn-outline" style="padding:4px 10px; font-size:0.8rem;">PDF</a>` : ''}
+                            ${a.status === 'pending_rh' ? `<button onclick="signApproval('${a.id}')" class="btn btn-primary" style="padding:4px 10px; font-size:0.8rem; margin-left: 5px;">Signer</button>` : ''}
+                            ${!a.pdf_url && a.status !== 'pending_rh' ? '--' : ''}
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (e) { console.error(e); }
+        }
+
+        function getStatusBadge(status) {
+            if (status === 'approved') return 'badge-success';
+            if (status === 'rejected') return 'badge-danger';
+            return 'badge-warning';
+        }
+
+        function openRequestModal() { document.getElementById("modal-request").style.display = "flex"; }
+        function closeModal() { document.getElementById("modal-request").style.display = "none"; }
+
+        async function signApproval(approvalId) {
+            if (!confirm("Voulez-vous vraiment signer et valider cette demande d'approbation ?")) return;
+            try {
+                await apiClient.post(`/approval/${approvalId}/sign`, { decision: "APPROVED", comments: "Validé par DRH" });
+                alert("Signature apposée avec succès !");
+                loadApprovals();
+            } catch (error) {
+                alert("Erreur: " + error.message);
+            }
+        }
+
+        document.getElementById("approval-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const body = {
+                candidate_id: document.getElementById("candidate_id").value,
+                job_offer_id: document.getElementById("job_offer_id").value,
+                nom_collaborateur: document.getElementById("nom_collab").value,
+                salaire_base: parseFloat(document.getElementById("base_salary").value),
+                date_embauche: document.getElementById("hire_date").value,
+                situation_familiale: "Marié", // Valeur par défaut pour la démo
+                personnes_a_charge: 0
+            };
+            try {
+                await apiClient.post("/approval/request", body);
+                closeModal();
+                loadApprovals();
+            } catch (e) { alert(e.message); }
+        });
+
+        loadApprovals();
+    </script>
+</body>
+</html>

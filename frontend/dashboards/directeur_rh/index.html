@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Directeur RH | RH IA Platform</title>
+    <link rel="stylesheet" href="/static/assets/css/theme.css">
+    <style>
+        .job-selector-bar {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            padding: 1rem 2rem;
+        }
+        .rubrics-nav {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .rubric-btn {
+            padding: 1.2rem;
+            text-align: center;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            transition: all 0.3s;
+            background: rgba(255,255,255,0.02);
+        }
+        .rubric-btn:hover { background: rgba(255,255,255,0.08); transform: translateY(-3px); }
+        .rubric-btn.active { border-color: var(--secondary); background: rgba(235, 160, 35, 0.1); }
+        .rubric-btn i { font-size: 1.5rem; display: block; margin-bottom: 0.5rem; }
+        
+        .workspace-panel { min-height: 500px; padding: 2rem; }
+        .candidate-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            margin-bottom: 0.8rem;
+            border-left: 4px solid var(--primary);
+        }
+        .score-badge {
+            background: var(--primary);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar glass">
+            <div class="logo">
+                <img src="" class="app-logo" style="max-width: 100%; display: none;">
+                <span class="logo-text" style="font-size: 1.5rem; font-weight: 800; color: var(--primary-light);">RH-IA V3</span>
+            </div>
+            <nav style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 3rem;">
+                <a href="index.html" class="btn btn-primary" style="width: 100%;">Tableau de bord</a>
+                <a href="candidates.html" class="btn btn-outline" style="width: 100%;">Vivier Candidats</a>
+                <a href="approvals.html" class="btn btn-outline" style="width: 100%;">Approbations</a>
+            </nav>
+            <div style="margin-top: auto;">
+                <button onclick="authService.logout()" class="btn btn-outline" style="width: 100%;">Déconnexion</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <header class="header">
+                <div>
+                    <h1 class="app-name">Plateforme RH</h1>
+                    <p style="color: var(--text-muted);">Session Directeur RH</p>
+                </div>
+                <div class="glass" id="user-info" style="padding: 0.5rem 1rem;">Chargement...</div>
+            </header>
+
+            <!-- 1. Sélecteur d'Offre (Le Pivot) -->
+            <div class="glass job-selector-bar">
+                <span style="font-weight: 600; color: var(--secondary);">Filtrer par Offre :</span>
+                <select id="job-selector" class="form-control" style="max-width: 400px;" onchange="updateWorkspace()">
+                    <option value="">Sélectionnez une offre d'emploi...</option>
+                </select>
+                <div id="job-stats" style="font-size: 0.9rem; color: var(--text-muted);"></div>
+            </div>
+
+            <!-- 2. Navigation par Rubriques (Les 8 piliers + Gestion) -->
+            <div class="rubrics-nav">
+                <div class="rubric-btn" onclick="switchRubric('jobs')">
+                    <span>📁 Offres d'emploi</span>
+                </div>
+                <div class="rubric-btn active" onclick="switchRubric('pipeline')">
+                    <span>👥 Candidats / Pipeline</span>
+                </div>
+                <div class="rubric-btn" onclick="switchRubric('chatbot')">
+                    <span>🤖 Chatbot</span>
+                </div>
+                <div class="rubric-btn" onclick="switchRubric('evaluation')">
+                    <span>📝 Évaluation</span>
+                </div>
+                <div class="rubric-btn" onclick="switchRubric('approval')">
+                    <span>💰 Approbation</span>
+                </div>
+                <div class="rubric-btn" onclick="switchRubric('onboarding')">
+                    <span>🚚 Onboarding</span>
+                </div>
+                <div class="rubric-btn" onclick="switchRubric('talent')">
+                    <span>💎 Talent (9-Box)</span>
+                </div>
+                <div class="rubric-btn" onclick="switchRubric('turnover')">
+                    <span>⚠️ Turnover</span>
+                </div>
+            </div>
+
+            <!-- 3. Espace de Travail Dynamique -->
+            <div id="workspace" class="glass workspace-panel">
+                <div style="text-align: center; padding-top: 5rem; color: var(--text-muted);">
+                    <h3>Veuillez sélectionner une offre d'emploi pour commencer.</h3>
+                    <p>Toutes les rubriques s'adapteront au contexte du poste choisi.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals & Templates -->
+    <div id="modal-container"></div>
+
+    <script src="/static/assets/js/api.js"></script>
+    <script src="/static/assets/js/auth.js"></script>
+    <script src="/static/assets/js/branding.js"></script>
+    <script>
+        let currentJobId = null;
+        let currentRubric = 'pipeline';
+        let allCandidates = [];
+
+        async function init() {
+            const user = authService.getCurrentUser();
+            document.getElementById('user-info').textContent = `${user.first_name} ${user.last_name}`;
+            
+            // Charger les offres
+            const jobsData = await apiClient.get("/jobs");
+            const selector = document.getElementById('job-selector');
+            jobsData.jobs.forEach(j => {
+                const opt = document.createElement('option');
+                opt.value = j.id;
+                opt.textContent = j.title;
+                selector.appendChild(opt);
+            });
+        }
+
+        async function updateWorkspace() {
+            currentJobId = document.getElementById('job-selector').value;
+            if(!currentJobId) return;
+
+            // Charger les candidats de cette offre
+            const data = await apiClient.get("/candidates");
+            allCandidates = data.candidates.filter(c => c.job_offer_id === currentJobId);
+            
+            renderRubric();
+        }
+
+        function switchRubric(rubric) {
+            currentRubric = rubric;
+            document.querySelectorAll('.rubric-btn').forEach(b => {
+                b.classList.remove('active');
+                if(b.textContent.toLowerCase().includes(rubric)) b.classList.add('active');
+            });
+            renderRubric();
+        }
+
+        function renderRubric() {
+            const workspace = document.getElementById('workspace');
+            
+            // Si c'est la gestion des offres, on n'a pas besoin de sélection d'offre
+            if(currentRubric === 'jobs') {
+                renderJobsManager(workspace);
+                return;
+            }
+
+            if(!currentJobId) {
+                workspace.innerHTML = `<div style="text-align: center; padding-top: 5rem; color: var(--text-muted);"><h3>Veuillez sélectionner une offre d'emploi pour voir le ${currentRubric}.</h3></div>`;
+                return;
+            }
+
+            switch(currentRubric) {
+                case 'pipeline':
+                    renderPipeline(workspace);
+                    break;
+                case 'evaluation':
+                    renderEvaluation(workspace);
+                    break;
+                case 'chatbot':
+                    renderChatbot(workspace);
+                    break;
+                case 'approval':
+                    renderApproval(workspace);
+                    break;
+                case 'onboarding':
+                    renderOnboarding(workspace);
+                    break;
+                case 'talent':
+                    renderTalent(workspace);
+                    break;
+                case 'turnover':
+                    renderTurnover(workspace);
+                    break;
+                default:
+                    workspace.innerHTML = `<h3>Rubrique ${currentRubric} en cours de déploiement...</h3>`;
+            }
+        }
+
+        function renderPipeline(container) {
+            container.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                    <h2>Pipeline de Recrutement Intelligent</h2>
+                    <span class="badge badge-success">${allCandidates.length} Candidats</span>
+                </div>
+                <div class="pipeline-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;">
+                    ${['applied', 'chatbot_completed', 'interview_scheduled', 'evaluation_completed'].map(stage => `
+                        <div class="stage-col">
+                            <h4 style="margin-bottom: 1rem; color: var(--secondary); text-transform: uppercase; font-size: 0.8rem;">${stage.replace('_', ' ')}</h4>
+                            <div class="stage-list">
+                                ${allCandidates.filter(c => c.pipeline_stage === stage).map(c => `
+                                    <div class="glass candidate-card">
+                                        <div onclick="viewCandidate('${c.id}')" style="cursor: pointer;">
+                                            <p style="font-weight: 600;">${c.first_name} ${c.last_name}</p>
+                                            <p style="font-size: 0.8rem; color: var(--text-muted);">Score IA: <span class="score-badge">${c.ai_score || 'N/A'}</span></p>
+                                        </div>
+                                        ${stage === 'chatbot_completed' ? `
+                                            <button onclick="scheduleInterview('${c.id}')" class="btn btn-primary btn-sm" style="margin-top: 10px; width: 100%; font-size: 0.7rem;">
+                                                📅 Programmer Entretien
+                                            </button>
+                                        ` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function renderEvaluation(container) {
+            container.innerHTML = `
+                <h2>Évaluation & Compte rendu (Doc 5.1)</h2>
+                <p style="color: var(--text-muted); margin-bottom: 2rem;">Sélectionnez un candidat ayant passé l'entretien pour saisir son évaluation.</p>
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem;">
+                    <div class="candidate-selector">
+                        ${allCandidates.filter(c => c.pipeline_stage === 'interview_scheduled').map(c => `
+                            <div class="glass candidate-card" onclick="loadEvaluationForm('${c.id}')">
+                                <span>${c.first_name} ${c.last_name}</span>
+                                <button class="btn btn-primary btn-sm">Evaluer</button>
+                            </div>
+                        `).join('') || '<p>Aucun candidat en attente d\'évaluation.</p>'}
+                    </div>
+                    <div id="evaluation-form-area" class="glass" style="padding: 1.5rem;">
+                        <p style="text-align: center; color: var(--text-muted);">Sélectionnez un candidat à gauche</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadEvaluationForm(candidateId) {
+            const area = document.getElementById('evaluation-form-area');
+            const cand = allCandidates.find(c => c.id === candidateId);
+            
+            area.innerHTML = `
+                <h3>Évaluation de ${cand.first_name} ${cand.last_name}</h3>
+                <form id="eval-form" style="margin-top: 1.5rem;">
+                    <div class="form-group">
+                        <label>Critères Techniques (Note 1-5)</label>
+                        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 10px;">
+                            <input type="text" class="form-control" value="Compétences métier" readonly>
+                            <input type="number" name="tech_score" min="1" max="5" class="form-control" required>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px;">
+                            <input type="text" class="form-control" value="Soft Skills" readonly>
+                            <input type="number" name="soft_score" min="1" max="5" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Avis Final</label>
+                        <select name="final_opinion" class="form-control">
+                            <option value="FAVORABLE">Favorable</option>
+                            <option value="RESERVE">Sous réserve</option>
+                            <option value="DEFAVORABLE">Défavorable</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Commentaires détaillés</label>
+                        <textarea name="comments" class="form-control" rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Valider et Générer PDF 5.1</button>
+                </form>
+            `;
+
+            document.getElementById('eval-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const fd = new FormData(e.target);
+                const body = {
+                    candidate_id: candidateId,
+                    global_score: (parseInt(fd.get('tech_score')) + parseInt(fd.get('soft_score'))) * 10, // Sur 100 pour le workflow
+                    final_opinion: fd.get('final_opinion'),
+                    comments: fd.get('comments'),
+                    criteria: {
+                        "Compétences métier": { "score": fd.get('tech_score'), "comment": "Evalué en entretien" },
+                        "Soft Skills": { "score": fd.get('soft_score'), "comment": "Evalué en entretien" }
+                    }
+                };
+                try {
+                    const res = await apiClient.post(`/evaluation/`, body);
+                    alert("Évaluation validée ! Document 5.1 généré.");
+                    window.open(res.pdf_url, '_blank');
+                    updateWorkspace();
+                } catch (err) { alert(err.message); }
+            });
+        }
+
+        function renderChatbot(container) {
+            container.innerHTML = `
+                <h2>Analyse Chatbot & Pré-qualification</h2>
+                <div class="stats-grid">
+                    <div class="glass stat-card">
+                        <p class="stat-label">Candidats qualifiés IA</p>
+                        <p class="stat-value">${allCandidates.filter(c => c.pipeline_stage === 'chatbot_completed').length}</p>
+                    </div>
+                    <div class="glass stat-card">
+                        <p class="stat-label">Score IA Moyen</p>
+                        <p class="stat-value">${(allCandidates.reduce((acc, c) => acc + (c.ai_score || 0), 0) / (allCandidates.length || 1)).toFixed(1)}/100</p>
+                    </div>
+                </div>
+                <div class="glass" style="padding: 1rem;">
+                    <h3>Résumés IA des conversations</h3>
+                    <div style="margin-top: 1rem;">
+                        ${allCandidates.filter(c => c.pipeline_stage === 'chatbot_completed').map(c => `
+                            <div class="candidate-card glass" style="border-left-color: var(--secondary);">
+                                <div>
+                                    <strong>${c.first_name} ${c.last_name}</strong>
+                                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 5px;">
+                                        "Candidat très motivé, possède une expérience solide en React. Réponse claire sur les prétentions salariales."
+                                    </p>
+                                </div>
+                                <button class="btn btn-outline btn-sm">Détails</button>
+                            </div>
+                        `).join('') || '<p>Aucune conversation terminée pour le moment.</p>'}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function renderApproval(container) {
+            container.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                    <h2>Simulations & Approbations (Docs 5.1 & 5.2)</h2>
+                    <span class="badge badge-info">Processus Automatique Actif</span>
+                </div>
+                
+                <div id="approval-main-view" style="display: grid; grid-template-columns: 1fr; gap: 2rem;">
+                    <div class="glass" style="padding: 1.5rem;">
+                        <h3>Dossiers de Recrutement en cours</h3>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Candidat</th>
+                                        <th>Poste</th>
+                                        <th>Statut Workflow</th>
+                                        <th>Compte Rendu (5.1)</th>
+                                        <th>Dossier RH (5.2)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="approval-list-body">
+                                    <tr><td colspan="5" style="text-align: center;">Chargement...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            try {
+                // On récupère les approbations
+                const appRes = await apiClient.get("/approval");
+                // On récupère tous les documents du tenant
+                const docRes = await apiClient.get("/documents");
+                
+                const body = document.getElementById('approval-list-body');
+                if (appRes.approvals.length === 0) {
+                    body.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 2rem;">Aucune demande en cours.</td></tr>`;
+                    return;
+                }
+
+                body.innerHTML = appRes.approvals.map(a => {
+                    const docs = docRes.documents.filter(d => d.candidate_id === a.candidate_id || d.approval_request_id === a.id);
+                    const doc51 = docs.find(d => d.type === 'INTERVIEW_REPORT')?.file_url;
+                    const doc52 = docs.find(d => d.type === 'APPROVAL_FORM')?.file_url;
+
+                    return `
+                        <tr>
+                            <td><b>${a.nom_collaborateur}</b></td>
+                            <td>${a.job_offers ? a.job_offers.title : 'N/A'}</td>
+                            <td>
+                                <span class="badge ${a.status === 'approved' ? 'badge-success' : 'badge-warning'}">
+                                    ${a.status.replace('pending_', 'Attente ')}
+                                </span>
+                            </td>
+                            <td style="text-align: center;">
+                                ${doc51 ? `<a href="${doc51}" target="_blank" title="Voir Compte Rendu" style="text-decoration:none; font-size:1.2rem;">📄</a>` : '—'}
+                            </td>
+                            <td style="text-align: center;">
+                                ${doc52 ? `<a href="${doc52}" target="_blank" title="Voir Dossier RH" style="text-decoration:none; font-size:1.2rem;">📂</a>` : 
+                                  (a.status === 'approved' ? 'Génération...' : '<small style="color:var(--text-muted)">Attente Signature DG</small>')}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (err) { console.error(err); }
+        }
+
+        function renderTalent(container) {
+            container.innerHTML = `
+                <h2>Gestion des Talents (Matrice 9-Box)</h2>
+                <div style="display: grid; grid-template-columns: 3fr 1fr; gap: 2rem; margin-top: 1.5rem;">
+                    <div class="glass" style="padding: 1rem; background: linear-gradient(45deg, rgba(235, 160, 35, 0.05), transparent);">
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 10px; height: 400px; text-align: center; font-size: 0.7rem;">
+                            <div class="glass" style="display: flex; align-items: center; justify-content: center; border-color: var(--secondary);">High Potential</div>
+                            <div class="glass" style="display: flex; align-items: center; justify-content: center;">Star</div>
+                            <div class="glass" style="display: flex; align-items: center; justify-content: center; background: rgba(16, 185, 129, 0.1);">Super Star</div>
+                            <div class="glass" style="display: flex; align-items: center; justify-content: center;">Dilemma</div>
+                            <div class="glass" style="display: flex; align-items: center; justify-content: center; background: rgba(235, 160, 35, 0.1);">Core Player</div>
+                            <div class="glass" style="display: flex; align-items: center; justify-content: center;">High Professional</div>
+                            <div class="glass" style="display: flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.1);">Under Performer</div>
+                            <div class="glass" style="display: flex; align-items: center; justify-content: center;">Effective</div>
+                            <div class="glass" style="display: flex; align-items: center; justify-content: center;">Trusted Professional</div>
+                        </div>
+                    </div>
+                    <div class="glass" style="padding: 1rem;">
+                        <h4>Légende</h4>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem;">
+                            Axe X : Performance<br>
+                            Axe Y : Potentiel
+                        </p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderTurnover(container) {
+            container.innerHTML = `
+                <h2>Analyse du Turnover & Risque IA</h2>
+                <div class="stats-grid">
+                    <div class="glass stat-card" style="border-left: 4px solid var(--danger);">
+                        <p class="stat-label">Risque Moyen (Instance)</p>
+                        <p class="stat-value">12%</p>
+                    </div>
+                    <div class="glass stat-card" style="border-left: 4px solid var(--success);">
+                        <p class="stat-label">Taux de Rétention</p>
+                        <p class="stat-value">94%</p>
+                    </div>
+                </div>
+                <div class="glass" style="padding: 1.5rem; margin-top: 1.5rem;">
+                    <h3>Employés à Risque Détectés par l'IA</h3>
+                    <p style="color: var(--text-muted); font-size: 0.9rem;">Basé sur le comportement, les feedbacks et l'engagement.</p>
+                    <div style="margin-top: 1rem;">
+                        <p>Aucun risque critique détecté pour cette offre/département.</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderReporting(container) {
+            container.innerHTML = `
+                <h2>Reporting & KPIs Stratégiques</h2>
+                <div class="stats-grid">
+                    <div class="glass stat-card">
+                        <p class="stat-label">Temps Moyen Recrutement</p>
+                        <p class="stat-value">18 Jours</p>
+                    </div>
+                    <div class="glass stat-card">
+                        <p class="stat-label">Coût par Recrutement</p>
+                        <p class="stat-value">4 500 MAD</p>
+                    </div>
+                    <div class="glass stat-card">
+                        <p class="stat-label">Précision IA (Score vs Final)</p>
+                        <p class="stat-value">92%</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function renderJobsManager(container) {
+            const res = await apiClient.get("/jobs");
+            const jobs = res.jobs || [];
+            container.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                    <h2>Gestion des Offres d'emploi</h2>
+                    <button class="btn btn-primary" onclick="showJobModal()">+ Nouvelle Offre</button>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Titre</th>
+                                <th>Référence</th>
+                                <th>Statut</th>
+                                <th>Candidats</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${jobs.map(j => `
+                                <tr>
+                                    <td><strong>${j.title}</strong></td>
+                                    <td>${j.reference || 'N/A'}</td>
+                                    <td><span class="badge ${j.is_published ? 'badge-success' : 'badge-warning'}">${j.is_published ? 'Publiée' : 'Brouillon'}</span></td>
+                                    <td><strong>${j.candidate_count || 0}</strong></td>
+                                    <td>
+                                        <button class="btn btn-outline btn-sm" onclick="selectJobAndSwitch('${j.id}')">Gérer</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function showJobModal() {
+            const modal = document.createElement('div');
+            modal.id = 'job-modal';
+            modal.className = 'modal-overlay';
+            modal.innerHTML = `
+                <div class="glass modal-content" style="max-width: 800px; padding: 2rem;">
+                    <h2>Publier une nouvelle offre</h2>
+                    <form id="create-job-form" style="margin-top: 1.5rem;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label>Titre de l'offre</label>
+                                <input type="text" name="title" class="form-control" placeholder="ex: Responsable SAV" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Référence</label>
+                                <input type="text" name="reference" class="form-control" placeholder="ex: SAV-2026-001">
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label>Département / Entité</label>
+                                <input type="text" name="entity_organisationnelle" class="form-control" placeholder="ex: Service Après-Vente">
+                            </div>
+                            <div class="form-group">
+                                <label>Motif du recrutement</label>
+                                <select name="recruitment_reason" class="form-control">
+                                    <option value="Renforcement de l'équipe">Renforcement de l'équipe</option>
+                                    <option value="Remplacement d'un départ">Remplacement d'un départ</option>
+                                    <option value="Création de poste">Création de poste</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label>Site / Ville</label>
+                                <input type="text" name="site" class="form-control" placeholder="ex: Casablanca">
+                            </div>
+                            <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 1.5rem;">
+                                <input type="checkbox" name="is_budgeted" id="is_budgeted" style="width: 20px; height: 20px;">
+                                <label for="is_budgeted" style="margin-bottom: 0;">Poste Budgété</label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Description du poste</label>
+                            <textarea name="description" class="form-control" rows="3"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Profil recherché / Requirements</label>
+                            <textarea name="requirements" class="form-control" rows="3"></textarea>
+                        </div>
+
+                        <h4 style="margin: 1.5rem 0 1rem; color: var(--secondary);">Conditions Financières (Budget)</h4>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+                            <div class="form-group">
+                                <label>Salaire de base (Net)</label>
+                                <input type="number" name="salaire_base" class="form-control" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label>Indemnité Panier</label>
+                                <input type="number" name="indemnite_panier" class="form-control" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label>Indemnité Transport</label>
+                                <input type="number" name="indemnite_transport" class="form-control" value="0">
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                            <button type="button" class="btn btn-outline" onclick="closeModal()" style="flex: 1;">Annuler</button>
+                            <button type="submit" class="btn btn-primary" style="flex: 2;">Publier l'offre</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            document.getElementById('create-job-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const payload = Object.fromEntries(formData.entries());
+                
+                // Convert numbers and boolean
+                ['salaire_base', 'indemnite_panier', 'indemnite_transport'].forEach(key => {
+                    payload[key] = parseFloat(payload[key]) || 0;
+                });
+                payload.is_budgeted = document.getElementById('is_budgeted').checked;
+
+                try {
+                    await apiClient.post("/jobs", payload);
+                    closeModal();
+                    updateWorkspace();
+                    renderJobsManager(document.getElementById('workspace'));
+                } catch (err) { alert(err.message); }
+            });
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('job-modal');
+            if(modal) modal.remove();
+        }
+
+        function selectJobAndSwitch(jobId) {
+            document.getElementById('job-selector').value = jobId;
+            currentJobId = jobId;
+            updateWorkspace();
+            switchRubric('pipeline');
+        }
+
+        async function renderOnboarding(container) {
+            container.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                    <h2>Gestion de l'Onboarding (Intégration)</h2>
+                    <div id="onboarding-stats" class="badge badge-info">Chargement stats...</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 350px 1fr; gap: 2rem;">
+                    <div class="glass" style="padding: 1rem;">
+                        <h4 style="margin-bottom: 1rem;">Nouveaux Employés</h4>
+                        <div id="onboarding-employee-list" class="list-group">
+                            <!-- Injected -->
+                        </div>
+                    </div>
+                    
+                    <div class="glass" style="padding: 1.5rem;">
+                        <h4 style="margin-bottom: 1rem;">Parcours d'Intégration</h4>
+                        <div id="onboarding-tasks-container">
+                            <p style="color: var(--text-muted); text-align: center; padding: 3rem;">Sélectionnez un employé pour voir ses tâches.</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            try {
+                // Charger stats
+                const stats = await apiClient.get("/onboarding/stats");
+                document.getElementById('onboarding-stats').textContent = `Progression Globale: ${stats.progress_rate}%`;
+
+                // Charger employés
+                const data = await apiClient.get("/onboarding/employees");
+                const list = document.getElementById('onboarding-employee-list');
+                
+                if (data.employees.length === 0) {
+                    list.innerHTML = `<p style="color: var(--text-muted); padding: 1rem;">Aucun onboarding en cours.</p>`;
+                    return;
+                }
+
+                list.innerHTML = data.employees.map(emp => `
+                    <div class="onboarding-item glass" onclick="loadOnboardingTasks('${emp.id}', '${emp.full_name}')" style="cursor: pointer; margin-bottom: 0.5rem; padding: 1rem; transition: transform 0.2s;">
+                        <div style="font-weight: 600;">${emp.full_name}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">${emp.email}</div>
+                    </div>
+                `).join('');
+
+            } catch (err) { console.error(err); }
+        }
+
+        async function loadOnboardingTasks(employeeId, fullName) {
+            const container = document.getElementById('onboarding-tasks-container');
+            container.innerHTML = `<p>Chargement des tâches pour ${fullName}...</p>`;
+
+            try {
+                const data = await apiClient.get(`/onboarding/tasks/${employeeId}`);
+                
+                container.innerHTML = `
+                    <div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="color: var(--primary-light);">${fullName}</h3>
+                        <span class="badge badge-success">${data.tasks.filter(t => t.status === 'COMPLETED').length} / ${data.tasks.length} Complétées</span>
+                    </div>
+                    
+                    <div class="tasks-list" style="display: flex; flex-direction: column; gap: 0.8rem;">
+                        ${data.tasks.map(task => `
+                            <div class="glass" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-left: 4px solid ${task.status === 'COMPLETED' ? 'var(--success)' : 'var(--warning)'};">
+                                <div>
+                                    <div style="font-weight: 600; text-decoration: ${task.status === 'COMPLETED' ? 'line-through' : 'none'}; opacity: ${task.status === 'COMPLETED' ? 0.6 : 1};">
+                                        ${task.title}
+                                    </div>
+                                    <div style="font-size: 0.75rem; color: var(--text-muted);">Catégorie: ${task.category || 'Général'}</div>
+                                </div>
+                                ${task.status === 'PENDING' ? `
+                                    <button onclick="completeOnboardingTask('${task.id}', '${employeeId}', '${fullName}')" class="btn btn-primary" style="padding: 5px 15px; font-size: 0.8rem;">Valider</button>
+                                ` : `
+                                    <span style="color: var(--success); font-weight: 800;">✓</span>
+                                `}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } catch (err) { console.error(err); }
+        }
+
+        async function completeOnboardingTask(taskId, employeeId, fullName) {
+            try {
+                await apiClient.patch(`/onboarding/tasks/${taskId}/complete`);
+                loadOnboardingTasks(employeeId, fullName);
+                // Rafraîchir les stats globales
+                const stats = await apiClient.get("/onboarding/stats");
+                document.getElementById('onboarding-stats').textContent = `Progression Globale: ${stats.progress_rate}%`;
+            } catch (err) { alert(err.message); }
+        }
+
+        // --- TALENT MODULE ---
+        async function renderTalent(container) {
+            container.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                    <h2>Matrice de Talent 9-Box</h2>
+                    <p style="color: var(--text-muted);">Évaluation croisée Potentiel vs Performance</p>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 400px; gap: 2rem;">
+                    <div id="nine-box-matrix" class="glass" style="display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 10px; height: 600px; padding: 20px; position: relative;">
+                        <!-- Labels Axes -->
+                        <div style="position: absolute; left: -40px; top: 50%; transform: rotate(-90deg); font-weight: 800; color: var(--primary-light);">POTENTIEL</div>
+                        <div style="position: absolute; bottom: -30px; left: 50%; transform: translateX(-50%); font-weight: 800; color: var(--primary-light);">PERFORMANCE</div>
+                        
+                        <!-- Cases (de haut en bas, gauche à droite) -->
+                        <div class="nine-box-cell glass" data-perf="1" data-pot="3" style="background: rgba(255,255,255,0.03); display: flex; flex-direction: column; padding: 10px; border: 1px dashed rgba(255,255,255,0.1);">
+                            <small>Question Mark</small>
+                            <div class="cell-content" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
+                        </div>
+                        <div class="nine-box-cell glass" data-perf="2" data-pot="3" style="background: rgba(255,255,255,0.03); display: flex; flex-direction: column; padding: 10px; border: 1px dashed rgba(255,255,255,0.1);">
+                            <small>High Potential</small>
+                            <div class="cell-content" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
+                        </div>
+                        <div class="nine-box-cell glass" data-perf="3" data-pot="3" style="background: rgba(0, 255, 127, 0.1); border: 2px solid var(--success); display: flex; flex-direction: column; padding: 10px;">
+                            <small style="color: var(--success); font-weight: 800;">STAR</small>
+                            <div class="cell-content" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
+                        </div>
+                        
+                        <div class="nine-box-cell glass" data-perf="1" data-pot="2" style="background: rgba(255,255,255,0.03); display: flex; flex-direction: column; padding: 10px; border: 1px dashed rgba(255,255,255,0.1);">
+                            <small>Dilemma</small>
+                            <div class="cell-content" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
+                        </div>
+                        <div class="nine-box-cell glass" data-perf="2" data-pot="2" style="background: rgba(255,255,255,0.03); display: flex; flex-direction: column; padding: 10px; border: 1px dashed rgba(255,255,255,0.1);">
+                            <small>Core Professional</small>
+                            <div class="cell-content" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
+                        </div>
+                        <div class="nine-box-cell glass" data-perf="3" data-pot="2" style="background: rgba(255,255,255,0.03); display: flex; flex-direction: column; padding: 10px; border: 1px dashed rgba(255,255,255,0.1);">
+                            <small>High Professional</small>
+                            <div class="cell-content" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
+                        </div>
+                        
+                        <div class="nine-box-cell glass" data-perf="1" data-pot="1" style="background: rgba(255, 0, 0, 0.05); border: 1px solid var(--danger); display: flex; flex-direction: column; padding: 10px;">
+                            <small style="color: var(--danger);">Under Performer</small>
+                            <div class="cell-content" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
+                        </div>
+                        <div class="nine-box-cell glass" data-perf="2" data-pot="1" style="background: rgba(255,255,255,0.03); display: flex; flex-direction: column; padding: 10px; border: 1px dashed rgba(255,255,255,0.1);">
+                            <small>Inconsistent Player</small>
+                            <div class="cell-content" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
+                        </div>
+                        <div class="nine-box-cell glass" data-perf="3" data-pot="1" style="background: rgba(255,255,255,0.03); display: flex; flex-direction: column; padding: 10px; border: 1px dashed rgba(255,255,255,0.1);">
+                            <small>Core Employee</small>
+                            <div class="cell-content" style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="glass" style="padding: 1.5rem;">
+                        <h4 style="margin-bottom: 1.5rem;">Évaluation de Talent</h4>
+                        <div id="talent-list" class="list-group">
+                            <!-- Injected -->
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            try {
+                // Charger la matrice
+                const matrixData = await apiClient.get("/talent/matrix");
+                matrixData.matrix.forEach(emp => {
+                    const perf = Math.round(emp.performance_score);
+                    const pot = Math.round(emp.potential_score);
+                    const cell = document.querySelector(`.nine-box-cell[data-perf="${perf}"][data-pot="${pot}"] .cell-content`);
+                    if (cell) {
+                        cell.innerHTML += `<span class="badge badge-info" title="${emp.nine_box_position}">${emp.full_name.split(' ')[0]}</span>`;
+                    }
+                });
+
+                // Charger tous les employés pour évaluation
+                const empData = await apiClient.get("/onboarding/employees"); // Ou un endpoint plus global
+                const list = document.getElementById('talent-list');
+                list.innerHTML = empData.employees.map(emp => `
+                    <div class="glass" style="margin-bottom: 1rem; padding: 1rem;">
+                        <div style="font-weight: 600; margin-bottom: 1rem;">${emp.full_name}</div>
+                        <div style="display: flex; gap: 0.5rem; flex-direction: column;">
+                            <label style="font-size: 0.7rem;">Performance (1-3)</label>
+                            <input type="range" min="1" max="3" step="0.5" id="perf-${emp.id}" class="form-control" style="height: 5px; padding: 0;">
+                            <label style="font-size: 0.7rem;">Potentiel (1-3)</label>
+                            <input type="range" min="1" max="3" step="0.5" id="pot-${emp.id}" class="form-control" style="height: 5px; padding: 0;">
+                            <button onclick="evaluateTalent('${emp.id}')" class="btn btn-primary" style="margin-top: 0.5rem; width: 100%; font-size: 0.8rem;">Analyser par IA</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) { console.error(err); }
+        }
+
+        async function evaluateTalent(employeeId) {
+            const perf = parseFloat(document.getElementById(`perf-${employeeId}`).value);
+            const pot = parseFloat(document.getElementById(`pot-${employeeId}`).value);
+            try {
+                const res = await apiClient.post("/talent/evaluate", {
+                    employee_id: employeeId,
+                    performance_score: perf,
+                    potential_score: pot
+                });
+                alert(`Résultat IA: ${res.label}\n\nAnalyse: ${res.ai_analysis.analysis}`);
+                renderTalent(document.getElementById('workspace'));
+            } catch (err) { alert(err.message); }
+        }
+
+        // --- TURNOVER MODULE ---
+        async function renderTurnover(container) {
+            container.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                    <h2>Prédiction & Rétention des Talents (IA)</h2>
+                    <span class="badge badge-warning">Analyse de Risque en Temps Réel</span>
+                </div>
+                
+                <div class="glass" style="padding: 1.5rem; margin-bottom: 2rem;">
+                    <h4>Liste de Surveillance des Risques</h4>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Collaborateur</th>
+                                    <th>Poste</th>
+                                    <th>Score de Risque</th>
+                                    <th>Niveau</th>
+                                    <th>Recommandation IA</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="turnover-list">
+                                <!-- Injected -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="glass" style="padding: 1.5rem;">
+                    <h4>Lancer une Analyse Prédictive</h4>
+                    <div id="turnover-prediction-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                        <!-- Injected -->
+                    </div>
+                </div>
+            `;
+
+            try {
+                // Charger les risques existants
+                const risksData = await apiClient.get("/turnover/risks");
+                const list = document.getElementById('turnover-list');
+                
+                if (risksData.risks.length === 0) {
+                    list.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem;">Aucun risque analysé pour le moment.</td></tr>`;
+                } else {
+                    list.innerHTML = risksData.risks.map(r => `
+                        <tr>
+                            <td><b>${r.employees.full_name}</b></td>
+                            <td>${r.employees.poste || 'N/A'}</td>
+                            <td>
+                                <div style="width: 100px; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px;">
+                                    <div style="width: ${r.risk_score}%; height: 100%; background: ${r.risk_score > 70 ? 'var(--danger)' : r.risk_score > 40 ? 'var(--warning)' : 'var(--success)'}; border-radius: 4px;"></div>
+                                </div>
+                                <small>${r.risk_score}%</small>
+                            </td>
+                            <td><span class="badge badge-${r.risk_level === 'HIGH' ? 'danger' : r.risk_level === 'MEDIUM' ? 'warning' : 'success'}">${r.risk_level}</span></td>
+                            <td style="font-size: 0.8rem; max-width: 300px;">${r.recommendations[0] || 'N/A'}</td>
+                            <td><button class="btn btn-outline" style="padding: 2px 8px; font-size: 0.7rem;">Détails</button></td>
+                        </tr>
+                    `).join('');
+                }
+
+                // Charger les employés pour lancer une prédiction
+                const empData = await apiClient.get("/onboarding/employees");
+                const predList = document.getElementById('turnover-prediction-list');
+                predList.innerHTML = empData.employees.map(emp => `
+                    <div class="glass" style="padding: 1rem; text-align: center;">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem;">${emp.full_name}</div>
+                        <button onclick="predictTurnover('${emp.id}')" class="btn btn-primary" style="width: 100%; font-size: 0.8rem;">Prédire Risque IA</button>
+                    </div>
+                `).join('');
+
+            } catch (err) { console.error(err); }
+        }
+
+        async function predictTurnover(employeeId) {
+            try {
+                const res = await apiClient.post(`/turnover/predict/${employeeId}`);
+                alert(`Risque détecté: ${res.risk_level} (${res.risk_score}%)\n\nFacteurs: ${res.factors.join(', ')}`);
+                renderTurnover(document.getElementById('workspace'));
+            } catch (err) { alert(err.message); }
+        }
+
+        async function scheduleInterview(id) {
+            try {
+                await apiClient.patch(`/candidates/${id}/stage`, { stage: 'interview_scheduled' });
+                updateWorkspace();
+            } catch (err) { alert(err.message); }
+        }
+
+        init();
+    </script>
+</body>
+</html>

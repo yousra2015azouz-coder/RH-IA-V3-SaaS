@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administration Master | RH IA Platform</title>
+    <link rel="stylesheet" href="/static/assets/css/theme.css">
+    <style>
+        .tabs { display: flex; gap: 1rem; margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem; }
+        .tab-btn { background: none; border: none; color: var(--text-muted); font-size: 1rem; cursor: pointer; padding: 0.5rem 1rem; border-radius: 8px; transition: all 0.3s; }
+        .tab-btn.active { background: var(--primary); color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .preview-box { width: 100px; height: 100px; border: 1px solid var(--border); border-radius: 8px; margin-top: 10px; background-size: contain; background-repeat: no-repeat; background-position: center; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar glass">
+            <div class="logo">
+                <img src="" class="app-logo" style="max-width: 100%; display: none;">
+                <span class="logo-text" style="font-size: 1.5rem; font-weight: 800; color: var(--primary-light);">RH-IA V3</span>
+            </div>
+            <nav style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 3rem;">
+                <a href="index.html" class="btn btn-primary" style="width: 100%;">Configuration</a>
+                <a href="errors.html" class="btn btn-outline" style="width: 100%;">Logs Erreurs</a>
+            </nav>
+            <div style="margin-top: auto;">
+                <button onclick="authService.logout()" class="btn btn-outline" style="width: 100%;">Déconnexion</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <header class="header">
+                <h1>Console d'Administration</h1>
+                <div class="glass" style="padding: 0.5rem 1rem;">Instance Dédiée</div>
+            </header>
+
+            <div class="tabs">
+                <button class="tab-btn active" onclick="showTab('tab-branding')">🎨 Personnaliser</button>
+                <button class="tab-btn" onclick="showTab('tab-access')">👥 Gestion des Accès</button>
+                <button class="tab-btn" onclick="showTab('tab-security')">🔒 Sécurité</button>
+            </div>
+
+            <!-- Rubrique 1: Personnalisation -->
+            <div id="tab-branding" class="tab-content active glass" style="padding: 2rem;">
+                <form id="branding-form">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                        <div>
+                            <h3 style="margin-bottom: 1.5rem;">Identité Visuelle</h3>
+                            <div class="form-group">
+                                <label>Nom de l'application</label>
+                                <input type="text" id="app_name" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Logo (PNG/JPG)</label>
+                                <input type="file" id="logo_file" class="form-control" accept="image/*">
+                                <div id="logo-preview" class="preview-box"></div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div class="form-group">
+                                    <label>Couleur Primaire</label>
+                                    <input type="color" id="primary_color" class="form-control" style="height: 45px; padding: 5px;">
+                                </div>
+                                <div class="form-group">
+                                    <label>Couleur Secondaire</label>
+                                    <input type="color" id="secondary_color" class="form-control" style="height: 45px; padding: 5px;">
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 style="margin-bottom: 1.5rem;">Interface Publique (Landing)</h3>
+                            <div class="form-group">
+                                <label>Titre Hero</label>
+                                <input type="text" id="hero_title" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Sous-titre Hero</label>
+                                <input type="text" id="hero_subtitle" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Texte de pied de page</label>
+                                <input type="text" id="footer_text" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 2rem; border-top: 1px solid var(--border); padding-top: 1.5rem; text-align: right;">
+                        <button type="submit" class="btn btn-primary">Enregistrer les modifications</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Rubrique 2: Gestion des Accès -->
+            <div id="tab-access" class="tab-content glass" style="padding: 2rem;">
+                <h3>Créer un nouveau compte Directeur</h3>
+                <form id="director-form" style="margin-top: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label>Prénom</label>
+                        <input type="text" id="dir-first" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Nom</label>
+                        <input type="text" id="dir-last" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="dir-email" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Rôle</label>
+                        <select id="dir-role" class="form-control">
+                            <option value="directeur_rh">Directeur RH</option>
+                            <option value="directeur_hierarchique">Directeur Hiérarchique</option>
+                            <option value="directeur_fonctionnel">Directeur Fonctionnel</option>
+                            <option value="directeur_general">Directeur Général</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Mot de passe</label>
+                        <input type="password" id="dir-pass" class="form-control" required>
+                    </div>
+                    <div style="display: flex; align-items: flex-end;">
+                        <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; height: 45px;">Créer le compte</button>
+                    </div>
+                </form>
+                
+                <h3 style="margin-top: 3rem;">Comptes existants</h3>
+                <div class="table-container" style="margin-top: 1rem;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nom complet</th>
+                                <th>Email</th>
+                                <th>Rôle</th>
+                                <th>Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-list">
+                            <!-- Injected -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Rubrique 3: Sécurité -->
+            <div id="tab-security" class="tab-content glass" style="padding: 2rem;">
+                <h3>Changer mon mot de passe administrateur</h3>
+                <form id="password-form" style="margin-top: 1.5rem; max-width: 400px;">
+                    <div class="form-group">
+                        <label>Nouveau mot de passe</label>
+                        <input type="password" id="new-pass" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Confirmer le mot de passe</label>
+                        <input type="password" id="confirm-pass" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Mettre à jour le mot de passe</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/assets/js/api.js"></script>
+    <script src="/static/assets/js/auth.js"></script>
+    <script src="/static/assets/js/branding.js"></script>
+    <script>
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // Charger branding actuel
+        async function loadBrandingForm() {
+            const data = await apiClient.get("/branding/");
+            if(data) {
+                document.getElementById('app_name').value = data.name || "";
+                document.getElementById('primary_color').value = data.primary_color || "#064E3B";
+                document.getElementById('secondary_color').value = data.secondary_color || "#EBA023";
+                document.getElementById('hero_title').value = data.hero_title || "";
+                document.getElementById('hero_subtitle').value = data.hero_subtitle || "";
+                document.getElementById('footer_text').value = data.footer_text || "";
+                if(data.logo_url) document.getElementById('logo-preview').style.backgroundImage = `url(${data.logo_url})`;
+            }
+        }
+
+        document.getElementById('branding-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append('app_name', document.getElementById('app_name').value);
+            formData.append('primary_color', document.getElementById('primary_color').value);
+            formData.append('secondary_color', document.getElementById('secondary_color').value);
+            formData.append('hero_title', document.getElementById('hero_title').value);
+            formData.append('hero_subtitle', document.getElementById('hero_subtitle').value);
+            formData.append('footer_text', document.getElementById('footer_text').value);
+            
+            const logoFile = document.getElementById('logo_file').files[0];
+            if(logoFile) formData.append('logo', logoFile);
+
+            try {
+                await apiClient.upload("/branding/", formData);
+                alert("Branding mis à jour ! Actualisez pour voir les changements.");
+                window.location.reload();
+            } catch (e) { alert(e.message); }
+        });
+
+        // Gestion Access
+        document.getElementById("director-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const body = {
+                tenant_slug: "demo", // Slug fixe pour l'entreprise unique
+                first_name: document.getElementById("dir-first").value,
+                last_name: document.getElementById("dir-last").value,
+                email: document.getElementById("dir-email").value,
+                password: document.getElementById("dir-pass").value
+            };
+            const role = document.getElementById("dir-role").value;
+            try {
+                await apiClient.post(`/auth/create-director?role=${role}`, body);
+                alert("Compte directeur créé !");
+                e.target.reset();
+                loadUsersList();
+            } catch (error) { alert(error.message); }
+        });
+
+        // Charger liste utilisateurs
+        async function loadUsersList() {
+            try {
+                const data = await apiClient.get("/auth/users");
+                const list = document.getElementById("users-list");
+                if(!data.users || data.users.length === 0) {
+                    list.innerHTML = "<tr><td colspan='4' style='text-align:center;'>Aucun compte trouvé</td></tr>";
+                    return;
+                }
+                list.innerHTML = data.users.map(u => `
+                    <tr>
+                        <td><b>${u.first_name} ${u.last_name}</b></td>
+                        <td>${u.email}</td>
+                        <td><span class="badge badge-primary">${u.role.replace('_', ' ').toUpperCase()}</span></td>
+                        <td><span class="badge ${u.is_active ? 'badge-success' : 'badge-danger'}">${u.is_active ? 'Actif' : 'Inactif'}</span></td>
+                    </tr>
+                `).join('');
+            } catch (e) { console.error("Erreur chargement users:", e); }
+        }
+
+        // Gestion Sécurité
+        document.getElementById('password-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const pass = document.getElementById('new-pass').value;
+            const confirm = document.getElementById('confirm-pass').value;
+            if(pass !== confirm) return alert("Les mots de passe ne correspondent pas");
+
+            try {
+                await apiClient.post(`/auth/change-password?new_password=${pass}`);
+                alert("Mot de passe mis à jour !");
+                e.target.reset();
+            } catch (e) { alert(e.message); }
+        });
+
+        loadBrandingForm();
+        loadUsersList();
+    </script>
+</body>
+</html>

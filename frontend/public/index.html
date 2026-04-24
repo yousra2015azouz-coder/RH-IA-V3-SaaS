@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portail Recrutement | RH IA Platform</title>
+    <link rel="stylesheet" href="/static/assets/css/theme.css">
+    <style>
+        .hero {
+            height: 400px;
+            background: linear-gradient(rgba(15, 23, 42, 0.7), rgba(15, 23, 42, 0.9)), 
+                        url('/static/assets/images/hero.png');
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            margin-bottom: 4rem;
+            border-bottom: 2px solid var(--secondary);
+        }
+        .search-container {
+            max-width: 1000px;
+            margin: -60px auto 4rem auto;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr auto;
+            gap: 1rem;
+            position: relative;
+            z-index: 10;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+        .portal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <header class="hero">
+        <div>
+            <h1 id="hero-title" style="font-size: 3.5rem; margin-bottom: 1rem;">Votre Avenir Commence Ici</h1>
+            <p id="hero-subtitle" style="font-size: 1.2rem; color: var(--text-muted);">Découvrez les opportunités de carrière</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="glass search-container">
+            <input type="text" class="form-control" placeholder="Titre du poste, mots-clés...">
+            <select class="form-control">
+                <option value="">Tous les sites</option>
+                <option value="Casablanca">Casablanca</option>
+                <option value="Rabat">Rabat</option>
+                <option value="Tanger">Tanger</option>
+            </select>
+            <select class="form-control">
+                <option value="">Tous les départements</option>
+                <option value="Informatique">Informatique</option>
+                <option value="RH">RH</option>
+                <option value="Finance">Finance</option>
+            </select>
+            <button class="btn btn-primary">Rechercher</button>
+        </div>
+
+        <div class="portal-header">
+            <h2>Offres d'emploi récentes</h2>
+            <span style="color: var(--text-muted);"><span id="job-count">0</span> offres disponibles</span>
+        </div>
+
+        <div id="jobs-list">
+            <!-- Jobs will be injected here as horizontal cards -->
+            <p style="text-align: center; padding: 3rem; color: var(--text-muted);">Chargement des offres...</p>
+        </div>
+    </div>
+
+    <footer style="margin-top: 5rem; padding: 4rem 0; border-top: 1px solid var(--border); text-align: center; background: rgba(0,0,0,0.3);">
+        <div class="container">
+            <p id="footer-text" style="color: var(--text-muted);">&copy; 2026 RH-IA V3 Platform. Tous droits réservés.</p>
+        </div>
+    </footer>
+
+    <script src="/static/assets/js/api.js"></script>
+    <script src="/static/assets/js/branding.js"></script>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const tenantSlug = params.get("tenant") || "demo";
+
+        async function loadPublicJobs() {
+            try {
+                const data = await apiClient.get(`/jobs/public/${tenantSlug}`);
+                const list = document.getElementById("jobs-list");
+                
+                if(data.tenant) {
+                    if(document.getElementById("hero-title")) document.getElementById("hero-title").textContent = data.tenant.hero_title || "Votre Avenir Commence Ici";
+                    if(document.getElementById("hero-subtitle")) document.getElementById("hero-subtitle").textContent = data.tenant.hero_subtitle || "";
+                }
+                
+                document.getElementById("job-count").textContent = data.jobs.length;
+
+                if (data.jobs.length === 0) {
+                    list.innerHTML = `<div class="glass" style="padding: 4rem; text-align: center;">Aucune offre disponible pour le moment.</div>`;
+                    return;
+                }
+
+                list.innerHTML = data.jobs.map(j => `
+                    <div class="glass job-item">
+                        <div class="job-info">
+                            <h3 style="color: var(--secondary);">${j.title}</h3>
+                            <div class="job-meta">
+                                <span>📍 ${j.site}</span>
+                                <span>📁 ${j.entity_organisationnelle}</span>
+                                <span>📅 Publiée le ${new Date(j.created_at).toLocaleDateString()}</span>
+                                <span class="badge badge-success">CDI</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 1.5rem;">
+                            <div style="text-align: right;">
+                                <p style="font-size: 0.8rem; color: var(--text-muted);">Réf: ${j.reference || 'N/A'}</p>
+                            </div>
+                            <a href="job-detail.html?job_id=${j.id}" class="btn btn-primary">Voir l'offre</a>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error(error);
+                document.getElementById("jobs-list").innerHTML = `<p style="color: var(--danger); text-align: center;">Erreur lors du chargement des offres.</p>`;
+            }
+        }
+
+        loadPublicJobs();
+    </script>
+</body>
+</html>
