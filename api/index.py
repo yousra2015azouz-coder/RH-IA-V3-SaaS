@@ -1,5 +1,5 @@
 """
-api/index.py — Point d'entrée Vercel avec diagnostic d'erreur d'import
+api/index.py — Point d'entrée Vercel pour SaaS RH V3
 """
 import sys
 import os
@@ -11,27 +11,28 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
-# Essayer d'importer l'app complète
+# ⚠️ IMPORTANT: 'app' doit être déclaré au niveau racine pour Vercel
+app = FastAPI(title="SaaS RH V3", version="3.0.0")
+
+# Essayer de charger l'application complète
 _import_error = None
 try:
-    from backend.main import app
+    from backend.main import app as _full_app
+    app = _full_app
 except Exception as e:
     _import_error = {
         "error": str(e),
-        "traceback": traceback.format_exc(),
-        "python_path": sys.path[:5]
+        "type": type(e).__name__,
+        "traceback": traceback.format_exc()
     }
-    # App de fallback pour afficher l'erreur
-    app = FastAPI()
 
     @app.get("/")
     async def show_error():
         return JSONResponse(status_code=500, content={
             "status": "IMPORT_ERROR",
-            "message": "L'application backend a échoué à l'import.",
             "details": _import_error
         })
 
     @app.get("/health")
-    async def health():
-        return JSONResponse(status_code=500, content={"status": "error", "import_error": _import_error})
+    async def health_error():
+        return JSONResponse(status_code=500, content={"status": "error", "details": _import_error})
