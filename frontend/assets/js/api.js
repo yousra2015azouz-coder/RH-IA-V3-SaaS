@@ -72,6 +72,15 @@ const apiClient = {
                 },
                 body: formData
             });
+
+            if (response.status === 401) {
+                this.clearToken();
+                if (!window.location.pathname.includes("/login.html")) {
+                    window.location.href = "/static/auth/login.html";
+                }
+                return null;
+            }
+
             const data = await response.json();
             if (!response.ok) throw new Error(data.detail || "Erreur upload");
             return data;
@@ -80,6 +89,7 @@ const apiClient = {
             throw error;
         }
     }
+
 };
 
 window.apiClient = apiClient;
