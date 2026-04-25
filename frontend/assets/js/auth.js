@@ -24,11 +24,12 @@ const authService = {
             "directeur_hierarchique": "/static/dashboards/directeur_hierarchique/index.html",
             "directeur_fonctionnel": "/static/dashboards/directeur_fonctionnel/index.html",
             "directeur_general": "/static/dashboards/directeur_general/index.html",
-            "candidat": "/static/public/index.html"
+            "candidat": "/static/portal/index.html"
         };
         
         window.location.href = rolePaths[role] || "/";
     },
+
 
     logout() {
         apiClient.clearToken();
@@ -43,13 +44,15 @@ const authService = {
 
     checkAuth() {
         if (!apiClient.getToken()) {
-            if (!window.location.pathname.includes("/login.html") && 
-                !window.location.pathname.includes("/register.html") &&
-                !window.location.pathname.includes("/public/")) {
+            const path = window.location.pathname;
+            if (!path.includes("/login.html") && 
+                !path.includes("/register.html") &&
+                !path.includes("/portal/")) {
                 window.location.href = "/static/auth/login.html";
             }
         }
     }
+
 };
 
 window.authService = authService;
