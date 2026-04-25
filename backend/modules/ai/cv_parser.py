@@ -5,6 +5,7 @@ Output : JSON {nom, email, telephone, competences, experience_years,
                education, langues, score_pertinence, resume}
 """
 import io
+import json
 import logging
 try:
     from pypdf import PdfReader  # Vercel-compatible (pure Python)
