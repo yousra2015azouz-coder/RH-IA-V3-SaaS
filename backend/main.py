@@ -159,12 +159,12 @@ async def serve_index():
         if os.path.exists(p):
             return FileResponse(p)
     
-    # Debug : Lister les fichiers pour comprendre la structure sur Vercel
+    # Debug : Lister TOUS les fichiers (jusqu'à 100) pour être sûr
     files_found = []
     try:
         for root, dirs, files in os.walk(frontend_dir):
             for f in files:
-                rel_path = os.path.relpath(os.path.join(root, f), frontend_dir)
+                rel_path = os.path.relpath(os.path.join(root, f), frontend_dir).replace("\\", "/")
                 files_found.append(rel_path)
     except:
         pass
@@ -174,9 +174,11 @@ async def serve_index():
         "debug": {
             "cwd": os.getcwd(),
             "frontend_dir": frontend_dir,
-            "files_in_frontend": files_found[:20] # Voir les 20 premiers fichiers
+            "files_total": len(files_found),
+            "files_in_frontend": sorted(files_found)[:100]
         }
     }
+
 
 
 
