@@ -1,11 +1,14 @@
 """
-api/index.py — Point d'entrée Vercel pour FastAPI
-Vercel cherche automatiquement ce fichier comme handler WSGI/ASGI.
+api/index.py — Point d'entrée Vercel MINIMAL pour diagnostic
 """
-import sys
-import os
+from fastapi import FastAPI
 
-# Ajouter le répertoire racine au path pour que les imports backend fonctionnent
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+app = FastAPI()
 
-from backend.main import app
+@app.get("/")
+async def root():
+    return {"status": "OK", "message": "SaaS RH V3 - Vercel Python fonctionne !"}
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "version": "3.0.0"}
