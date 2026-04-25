@@ -131,10 +131,16 @@ frontend_dir = os.path.join(BASE_DIR, "frontend")
 if os.path.exists(frontend_dir):
     app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
 
-# Documents générés — toujours servis localement (fallback Supabase en prod)
-docs_dir = os.path.join(BASE_DIR, "backend", "static", "documents")
+# Documents générés — /tmp sur Vercel (seul dossier accessible en écriture), local sinon
+IS_VERCEL = os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV")
+if IS_VERCEL:
+    docs_dir = "/tmp/generated_docs"
+else:
+    docs_dir = os.path.join(BASE_DIR, "backend", "static", "documents")
+
 os.makedirs(docs_dir, exist_ok=True)
 app.mount("/generated_docs", StaticFiles(directory=docs_dir), name="generated_docs")
+
 
 @app.get("/")
 async def serve_index():
