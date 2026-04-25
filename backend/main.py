@@ -124,30 +124,51 @@ app.include_router(error_router, prefix="/api/v1")
 app.include_router(documents_router, prefix="/api/v1")
 
 # ── STATIC FILES & FRONTEND ────────────────────────────────
-# Chemin absolu compatible Vercel et local
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-frontend_dir = os.path.join(BASE_DIR, "frontend")
+
+# Liste des chemins possibles pour le frontend
+possible_frontend_paths = [
+    os.path.join(BASE_DIR, "frontend"),
+    os.path.join(os.getcwd(), "frontend"),
+    "/var/task/frontend"
+]
+
+frontend_dir = possible_frontend_paths[0]
+for p in possible_frontend_paths:
+    if os.path.exists(p):
+        frontend_dir = p
+        break
 
 if os.path.exists(frontend_dir):
     app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
 
-# Documents générés — /tmp sur Vercel (seul dossier accessible en écriture), local sinon
+# Documents générés — /tmp sur Vercel
 IS_VERCEL = os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV")
-if IS_VERCEL:
-    docs_dir = "/tmp/generated_docs"
-else:
-    docs_dir = os.path.join(BASE_DIR, "backend", "static", "documents")
-
+docs_dir = "/tmp/generated_docs" if IS_VERCEL else os.path.join(BASE_DIR, "backend", "static", "documents")
 os.makedirs(docs_dir, exist_ok=True)
 app.mount("/generated_docs", StaticFiles(directory=docs_dir), name="generated_docs")
 
-
 @app.get("/")
 async def serve_index():
-    path = os.path.join(frontend_dir, "public", "index.html")
-    if os.path.exists(path):
-        return FileResponse(path)
-    return {"message": "SaaS RH V3 en ligne — Frontend introuvable"}
+    # Chercher index.html dans public ou à la racine du frontend
+    paths = [
+        os.path.join(frontend_dir, "public", "index.html"),
+        os.path.join(frontend_dir, "index.html")
+    ]
+    for p in paths:
+        if os.path.exists(p):
+            return FileResponse(p)
+    
+    return {
+        "message": "SaaS RH V3 en ligne — Frontend introuvable",
+        "debug": {
+            "cwd": os.getcwd(),
+            "base_dir": BASE_DIR,
+            "frontend_dir": frontend_dir,
+            "exists": os.path.exists(frontend_dir)
+        }
+    }
+
 
 @app.get("/{filename}.html")
 async def serve_html(filename: str):
