@@ -150,9 +150,9 @@ app.mount("/generated_docs", StaticFiles(directory=docs_dir), name="generated_do
 
 @app.get("/")
 async def serve_index():
-    # Chercher index.html dans public ou à la racine du frontend
+    # Chercher index.html dans portal ou à la racine du frontend
     paths = [
-        os.path.join(frontend_dir, "public", "index.html"),
+        os.path.join(frontend_dir, "portal", "index.html"),
         os.path.join(frontend_dir, "index.html")
     ]
     for p in paths:
@@ -179,15 +179,13 @@ async def serve_index():
         }
     }
 
-
-
-
 @app.get("/{filename}.html")
 async def serve_html(filename: str):
-    path = os.path.join(frontend_dir, "public", f"{filename}.html")
+    path = os.path.join(frontend_dir, "portal", f"{filename}.html")
     if os.path.exists(path):
         return FileResponse(path)
     return JSONResponse(status_code=404, content={"detail": "Fichier non trouvé"})
+
 
 # ── LIFECYCLE ──────────────────────────────────────────────
 @app.on_event("startup")
