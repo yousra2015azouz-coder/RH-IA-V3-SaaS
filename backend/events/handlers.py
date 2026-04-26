@@ -12,10 +12,51 @@ logger = logging.getLogger(__name__)
 
 # ── candidate_created ─────────────────────────────────────
 async def on_candidate_created(payload: dict):
-    """Déclenche parsing CV + notifie le DRH."""
+    """Déclenche parsing CV + notifie le DRH et le candidat."""
     candidate_id = payload.get("candidate_id")
     tenant_id = payload.get("tenant_id")
+    ai_score = payload.get("ai_score", 0)
+    auto_invite = payload.get("auto_invite_chatbot", False)
+    
     logger.info(f"[Handler] candidate_created: {candidate_id}")
+
+    # 1. Notification DRH
+    drh_res = supabase_admin.table("users").select("id").eq(
+        "tenant_id", tenant_id).eq("role", "directeur_rh").execute()
+    for drh in (drh_res.data or []):
+        supabase_admin.table("notifications").insert({
+            "user_id": drh["id"],
+            "tenant_id": tenant_id,
+            "title": "Nouvelle candidature",
+            "message": f"Un nouveau candidat vient de postuler (Score IA: {ai_score}%). CV analysé.",
+            "type": "candidate"
+        }).execute()
+
+    # 2. Notification Candidat (Invitation Chatbot)
+    if auto_invite:
+        cand_res = supabase_admin.table("candidates").select("user_id").eq("id", candidate_id).execute()
+        if cand_res.data:
+            supabase_admin.table("notifications").insert({
+                "user_id": cand_res.data[0]["user_id"],
+                "tenant_id": tenant_id,
+                "title": "Invitation Entretien IA",
+                "message": "Félicitations ! Votre profil a retenu notre attention. Vous êtes invité à passer un entretien avec notre assistant IA.",
+                "type": "chatbot_invite"
+            }).execute()
+
+
+# ── chatbot_completed ──────────────────────────────────────
+async def on_chatbot_completed(payload: dict):
+    """Met à jour le stage pipeline → interview + notifie le RH."""
+    candidate_id = payload.get("candidate_id")
+    tenant_id = payload.get("tenant_id")
+    score = payload.get("score", 0)
+    logger.info(f"[Handler] chatbot_completed: {candidate_id}")
+
+    # Update Stage
+    supabase_admin.table("candidates").update(
+        {"pipeline_stage": "chatbot_completed"}
+    ).eq("id", candidate_id).execute()
 
     # Notification DRH
     drh_res = supabase_admin.table("users").select("id").eq(
@@ -24,22 +65,10 @@ async def on_candidate_created(payload: dict):
         supabase_admin.table("notifications").insert({
             "user_id": drh["id"],
             "tenant_id": tenant_id,
-            "title": "Nouvelle candidature",
-            "message": f"Un nouveau candidat vient de postuler. CV en cours d'analyse IA.",
-            "type": "candidate"
+            "title": "Entretien IA Terminé",
+            "message": f"Un candidat a terminé son entretien chatbot (Score: {score}/100). À évaluer.",
+            "type": "evaluation_needed"
         }).execute()
-
-
-# ── chatbot_completed ──────────────────────────────────────
-async def on_chatbot_completed(payload: dict):
-    """Met à jour le stage pipeline → interview."""
-    candidate_id = payload.get("candidate_id")
-    tenant_id = payload.get("tenant_id")
-    logger.info(f"[Handler] chatbot_completed: {candidate_id}")
-
-    supabase_admin.table("candidates").update(
-        {"pipeline_stage": "chatbot_completed"}
-    ).eq("id", candidate_id).execute()
 
 
 # ── evaluation_submitted ───────────────────────────────────
@@ -86,24 +115,43 @@ async def on_evaluation_submitted(payload: dict):
                 }
             
             if job:
-                # 3. Calculer les salaires réels
-                sal_base = job.get("salaire_base", 0) or 10000
+                # 2.9. Vérification de la date d'échéance (Circuit Sécurisé)
+                from datetime import datetime
+                expiry_str = job.get("expiry_date")
+                if expiry_str:
+                    expiry_date = datetime.fromisoformat(expiry_str.replace('Z', '+00:00'))
+                    if datetime.now().timestamp() > expiry_date.timestamp():
+                        logger.warning(f"Offre {job.get('id')} expirée. Approbation bloquée.")
+                        return
+
+                # 3. Calculer les salaires basés sur le budget DRH (Fixe) + Situation candidat (Variable)
+                sal_base_budget = job.get("salaire_base", 0) or 10000
+                
+                # Le moteur calcule le Net final selon les enfants à charge du candidat
                 sal_data = calculate_moroccan_salary(
-                    salaire_brut=sal_base,
+                    salaire_base_drh=sal_base_budget,
                     taux_cimr=job.get("taux_cimr", 6.0),
                     nb_enfants=cand.get("personnes_a_charge", 0) or 0
                 )
 
-                # 4. Création automatique de la demande d'approbation (Doc 5.2)
+                # 4. Création automatique de la demande d'approbation (Doc 5.2) avec rubriques détaillées
                 supabase_admin.table("approval_requests").insert({
                     "tenant_id": tenant_id,
                     "candidate_id": candidate_id,
                     "nom_collaborateur": f"{cand.get('first_name')} {cand.get('last_name')}",
                     "job_offer_id": cand.get("job_offer_id"),
-                    "salaire_base": sal_data["salaire_brut"],
-                    "salaire_mensuel_brut": sal_data["salaire_brut"],
+                    
+                    # Remplissage des lignes du formulaire
+                    "salaire_base": sal_data["salaire_base"],
+                    "indemnite_panier": sal_data["indemnite_panier"],
+                    "indemnite_transport": sal_data["indemnite_transport"],
+                    "prime_loyer": sal_data["prime_loyer"],
+                    
+                    "salaire_mensuel_brut": sal_data["salaire_mensuel_brut"],
                     "salaire_mensuel_net": sal_data["salaire_net"],
                     "salaire_annuel_garanti": sal_data["salaire_annuel_garanti"],
+                    "taux_cimr": sal_data["taux_cimr"],
+                    
                     "status": "pending_hierarchique",
                     "groq_recommendation": groq_rec
                 }).execute()
@@ -185,6 +233,10 @@ async def on_employee_created(payload: dict):
             "category": task["category"],
             "status": "PENDING"
         }).execute()
+    
+    # Déclencher le provisionning des accès SaaS (Option A : Automatique)
+    from backend.modules.onboarding.service import provision_employee_access
+    await provision_employee_access(employee_id, tenant_id)
 
 
 # ── risk_detected ──────────────────────────────────────────

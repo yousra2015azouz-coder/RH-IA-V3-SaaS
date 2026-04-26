@@ -41,7 +41,8 @@ async def process_cv_and_score(
         # 5. Publier événement
         await event_bus.publish("candidate_created", {
             "candidate_id": candidate_id,
-            "ai_score": ai_score
+            "ai_score": ai_score,
+            "auto_invite_chatbot": ai_score >= 60  # Seuil de déclenchement auto
         }, tenant_id)
 
         logger.info(f"CV traité — candidat {candidate_id} | score: {ai_score}/100")

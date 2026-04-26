@@ -9,7 +9,12 @@ const apiClient = {
     
     setToken: (token) => localStorage.setItem("rh_token", token),
     
-    clearToken: () => localStorage.removeItem("rh_token"),
+    clearToken: () => {
+        localStorage.removeItem("rh_token");
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("user");
+        localStorage.removeItem("rh_user");
+    },
 
     async request(endpoint, options = {}) {
         const token = this.getToken();
@@ -28,12 +33,14 @@ const apiClient = {
             const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
             
             if (response.status === 401) {
-                // Token expiré ou invalide
-                this.clearToken();
-                if (!window.location.pathname.includes("/login.html")) {
-                    window.location.href = "/static/auth/login.html";
+                // Si ce n'est pas une tentative de connexion, c'est que le token a expiré
+                if (!endpoint.includes("/auth/login")) {
+                    this.clearToken();
+                    if (!window.location.pathname.includes("/login.html")) {
+                        window.location.href = "/static/auth/login.html";
+                    }
+                    return null;
                 }
-                return null;
             }
 
             const data = await response.json();
@@ -51,6 +58,11 @@ const apiClient = {
     
     post: (endpoint, body) => apiClient.request(endpoint, {
         method: "POST",
+        body: JSON.stringify(body)
+    }),
+    
+    put: (endpoint, body) => apiClient.request(endpoint, {
+        method: "PUT",
         body: JSON.stringify(body)
     }),
     

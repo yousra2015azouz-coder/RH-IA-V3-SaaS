@@ -46,6 +46,7 @@ async def auth_middleware(request: Request, call_next):
         "/api/v1/recruitment/jobs", 
         "/api/v1/chatbot",
         "/api/v1/branding",
+        "/api/v1/candidate/register",  # Inscription candidat publique
         "/docs", 
         "/openapi.json", 
         "/static", 
@@ -110,6 +111,7 @@ from backend.modules.turnover.router import router as turnover_router
 from backend.modules.documents.router import router as documents_router
 from backend.modules.branding.router import router as branding_router
 from backend.modules.error_tracker.router import router as error_router
+from backend.modules.candidate.router import router as candidate_router
 
 app.include_router(auth_router)
 app.include_router(recruit_router, prefix="/api/v1")
@@ -122,6 +124,7 @@ app.include_router(turnover_router, prefix="/api/v1")
 app.include_router(branding_router, prefix="/api/v1")
 app.include_router(error_router, prefix="/api/v1")
 app.include_router(documents_router, prefix="/api/v1")
+app.include_router(candidate_router, prefix="/api/v1")
 
 # ── STATIC FILES & FRONTEND ────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

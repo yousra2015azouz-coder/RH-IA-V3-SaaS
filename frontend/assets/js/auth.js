@@ -9,6 +9,9 @@ const authService = {
             if (data && data.access_token) {
                 apiClient.setToken(data.access_token);
                 localStorage.setItem("rh_user", JSON.stringify(data.user));
+                // Aussi stocker avec la clé utilisée par le portail candidat
+                localStorage.setItem("access_token", data.access_token);
+                localStorage.setItem("user", JSON.stringify(data.user));
                 this.redirectByRole(data.user.role);
                 return data;
             }
@@ -18,13 +21,22 @@ const authService = {
     },
 
     redirectByRole(role) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const customRedirect = urlParams.get('redirect');
+        
+        if (customRedirect) {
+            window.location.href = customRedirect;
+            return;
+        }
+
         const rolePaths = {
             "super_admin": "/static/dashboards/super_admin/index.html",
             "directeur_rh": "/static/dashboards/directeur_rh/index.html",
             "directeur_hierarchique": "/static/dashboards/directeur_hierarchique/index.html",
             "directeur_fonctionnel": "/static/dashboards/directeur_fonctionnel/index.html",
             "directeur_general": "/static/dashboards/directeur_general/index.html",
-            "candidat": "/static/portal/index.html"
+            "candidat": "/static/portal/dashboard.html",
+            "employe": "/static/portal/employee-dashboard.html"
         };
         
         window.location.href = rolePaths[role] || "/";

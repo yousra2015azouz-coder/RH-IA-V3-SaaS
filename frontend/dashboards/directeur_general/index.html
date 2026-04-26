@@ -3,39 +3,65 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Validation Générale | RH IA Platform</title>
+    <title>Cockpit Direction Générale | RH IA Platform</title>
     <link rel="stylesheet" href="/static/assets/css/theme.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="app-container">
-        <div class="sidebar glass">
-            <div class="logo" style="font-size: 1.5rem; font-weight: 800; margin-bottom: 3rem; color: var(--primary-light);">RH-IA V3</div>
-            <nav style="display: flex; flex-direction: column; gap: 0.5rem;">
-                <a href="index.html" class="btn btn-primary" style="width: 100%;">Approbations Finales</a>
+        <aside class="sidebar">
+            <div class="logo" style="font-size: 1.5rem; font-weight: 800; margin-bottom: 3rem; color: var(--secondary);">RH-IA <span style="color: var(--text-main);">V3</span></div>
+            <nav style="display: flex; flex-direction: column; gap: 0.8rem;">
+                <a href="index.html" class="btn btn-primary" style="justify-content: flex-start; width: 100%;">
+                    <span>📊</span> Approbations Finales
+                </a>
             </nav>
-            <div style="margin-top: auto;">
-                <button onclick="authService.logout()" class="btn btn-outline" style="width: 100%;">Déconnexion</button>
+            <div style="position: absolute; bottom: 2rem; width: calc(100% - 3rem);">
+                <button onclick="authService.logout()" class="btn btn-outline" style="width: 100%; justify-content: center;">Déconnexion</button>
             </div>
-        </div>
+        </aside>
 
-        <div class="main-content">
+        <main class="main-content">
             <header class="header">
-                <div>
-                    <h1>Espace Direction Générale</h1>
-                    <p style="color: var(--text-muted);">Visa final et arbitrage stratégique</p>
+                <div class="animate-fade">
+                    <h1>Décisions Stratégiques</h1>
+                    <p style="color: var(--text-muted);">Arbitrage final du pipeline de recrutement</p>
                 </div>
             </header>
 
-            <div class="glass" style="padding: 1.5rem;">
-                <h3>Demandes en attente de validation DG</h3>
+            <!-- KPI Dashboard Summary -->
+            <div class="kpi-grid animate-fade" style="animation-delay: 0.1s;">
+                <div class="kpi-card glass">
+                    <div class="kpi-label">Dossiers en Attente <span class="trend-up">↑</span></div>
+                    <div class="kpi-value" id="count-pending">0</div>
+                    <div class="kpi-trend trend-up">Action requise urgente</div>
+                </div>
+                <div class="kpi-card glass">
+                    <div class="kpi-label">Masse Salariale Prévue</div>
+                    <div class="kpi-value" id="total-salary">0</div>
+                    <div class="kpi-trend">K MAD / An</div>
+                </div>
+                <div class="kpi-card glass">
+                    <div class="kpi-label">Score Reco. IA Moyen</div>
+                    <div class="kpi-value" id="avg-ai-score">0%</div>
+                    <div class="ai-badge" style="width: fit-content;">Optimal</div>
+                </div>
+            </div>
+
+            <!-- Table Section -->
+            <div class="glass animate-fade" style="padding: 1.5rem; animation-delay: 0.2s;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h3>Demandes de Validation (Visa DG)</h3>
+                    <div class="badge badge-warning">Action Nécessaire</div>
+                </div>
                 <div class="table-container">
                     <table>
                         <thead>
                             <tr>
-                                <th>Candidat</th>
-                                <th>Poste</th>
-                                <th>Salaire (Annuel)</th>
-                                <th>Recommandation IA</th>
+                                <th>Candidat & Profil</th>
+                                <th>Poste Visé</th>
+                                <th>Proposition Salariale</th>
+                                <th>Analyse IA (Confidence)</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
@@ -45,31 +71,42 @@
                     </table>
                 </div>
             </div>
-        </div>
+        </main>
     </div>
 
     <!-- Modal Approbation DG avec IA -->
-    <div id="modal-sign" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
-        <div class="glass" style="width:600px; padding:2rem; max-height:90vh; overflow-y:auto;">
-            <h2>Décision Direction Générale</h2>
+    <div id="modal-sign" class="modal-overlay" style="display:none;">
+        <div class="glass animate-fade" style="width:650px; padding:2.5rem; max-height:90vh; overflow-y:auto; border-top: 4px solid var(--secondary);">
+            <h2 style="margin-bottom: 0.5rem;">Décision Direction Générale</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 2rem;">Veuillez confirmer le recrutement après analyse des indicateurs.</p>
             
-            <div id="ai-rec-box" class="glass" style="margin:1.5rem 0; padding:1.5rem; border-left:4px solid var(--primary-light);">
+            <div id="ai-rec-box" class="glass" style="margin-bottom:2rem; padding:1.5rem; background: rgba(16, 185, 129, 0.05); border-left:4px solid var(--success);">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-                    <h4 style="color:var(--primary-light);">🧠 Analyse & Recommandation IA</h4>
-                    <span id="ai-confidence" class="ai-score-tag">Confidence: 0%</span>
+                    <h4 style="color:var(--success); display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 1.2rem;">🧠</span> Analyse de l'Intelligence Artificielle
+                    </h4>
+                    <span id="ai-confidence" class="ai-badge">Confiance: 0%</span>
                 </div>
-                <p id="ai-justification" style="font-size:0.9rem; margin-bottom:1rem;"></p>
-                <div id="ai-risks" style="font-size:0.85rem; color:var(--danger);"></div>
+                <p id="ai-justification" style="font-size:0.95rem; line-height: 1.6; margin-bottom:1.5rem;"></p>
+                <div id="ai-risks" style="padding: 1rem; background: rgba(244, 63, 94, 0.1); border-radius: 8px; font-size:0.85rem; color:var(--danger);">
+                    <strong>⚠️ Risques Identifiés :</strong><br>
+                    <div id="ai-risks-content" style="margin-top: 5px;"></div>
+                </div>
             </div>
 
             <div class="form-group">
-                <label>Commentaires DG</label>
-                <textarea id="sign-comments" class="form-control" rows="4"></textarea>
+                <label>Commentaires d'arbitrage (Optionnel)</label>
+                <textarea id="sign-comments" class="form-control" rows="3" placeholder="Saisissez vos observations pour le dossier..."></textarea>
             </div>
-            <div style="display:flex; gap:1rem; margin-top:1.5rem;">
-                <button onclick="submitDecision('APPROVED')" class="btn btn-primary" style="flex:1; justify-content:center; background:var(--success);">Signer & Recruter</button>
-                <button onclick="submitDecision('REJECTED')" class="btn btn-outline" style="flex:1; justify-content:center; border-color:var(--danger); color:var(--danger);">Veto DG</button>
-                <button onclick="closeModal()" class="btn btn-outline">Annuler</button>
+
+            <div style="display:flex; gap:1rem; margin-top:2.5rem;">
+                <button onclick="submitDecision('APPROVED')" class="btn btn-primary" style="flex:2; background:var(--success); border-color: transparent;">
+                    ✅ Valider & Engager
+                </button>
+                <button onclick="submitDecision('REJECTED')" class="btn btn-outline" style="flex:1; border-color:var(--danger); color:var(--danger);">
+                    ❌ Veto Stratégique
+                </button>
+                <button onclick="closeModal()" class="btn btn-outline" style="flex: 0.5;">Fermer</button>
             </div>
         </div>
     </div>
@@ -86,37 +123,56 @@
                 
                 const pending = data.approvals.filter(a => a.status === "pending_dg");
 
+                // Mise à jour des KPI (simulation ou calcul réel)
+                document.getElementById("count-pending").textContent = pending.length;
+                const totalSal = pending.reduce((sum, a) => sum + (a.salaire_annuel_garanti || 0), 0);
+                document.getElementById("total-salary").textContent = (totalSal / 1000).toFixed(0);
+                
                 if (pending.length === 0) {
-                    list.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">Aucune demande en attente.</td></tr>`;
+                    list.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:3rem; color:var(--text-muted);">🎉 Aucun dossier en attente de visa DG.</td></tr>`;
                     return;
                 }
 
                 list.innerHTML = pending.map(a => {
+                    const candidateName = a.nom_collaborateur || "Candidat";
+                    const jobTitle = (a.job_offers && a.job_offers.title) ? a.job_offers.title : 'N/A';
+                    const monthlySalary = (a.salaire_mensuel_net || 0).toLocaleString();
+                    
+                    // Parsing intelligent de groq_recommendation
+                    let aiRec = { decision: 'PENDING', confidence: 0 };
                     try {
-                        const candidateName = a.nom_collaborateur || "Candidat inconnu";
-                        const jobTitle = (a.job_offers && a.job_offers.title) ? a.job_offers.title : 'Poste non spécifié';
-                        const salary = (a.salaire_annuel_garanti || 0).toLocaleString();
-                        const aiRec = a.groq_recommendation || { decision: 'N/A', confidence: 0 };
-                        
-                        return `
-                            <tr>
-                                <td><b>${candidateName}</b></td>
-                                <td>${jobTitle}</td>
-                                <td>${salary} MAD</td>
-                                <td>
-                                    <span class="badge ${aiRec.decision === 'APPROVE' ? 'badge-success' : 'badge-warning'}">
-                                        IA: ${aiRec.decision}
-                                    </span>
-                                </td>
-                                <td>
-                                    <button onclick="openModal('${a.id}', ${JSON.stringify(aiRec).replace(/\"/g, '&quot;')})" class="btn btn-primary" style="padding:4px 10px; font-size:0.8rem;">Examiner</button>
-                                </td>
-                            </tr>
-                        `;
-                    } catch (err) {
-                        console.error("Erreur rendu ligne:", err, a);
-                        return "";
-                    }
+                        const recData = typeof a.groq_recommendation === 'string' ? JSON.parse(a.groq_recommendation) : a.groq_recommendation;
+                        if (recData && recData.ai_rec) {
+                            // C'est le nouveau format avec métadonnées
+                            aiRec = typeof recData.ai_rec === 'string' ? JSON.parse(recData.ai_rec) : recData.ai_rec;
+                        } else if (recData && recData.confidence !== undefined) {
+                            aiRec = recData;
+                        }
+                    } catch(e) { console.warn("AI Rec parse error", e); }
+                    
+                    return `
+                        <tr class="animate-fade">
+                            <td>
+                                <div style="display: flex; flex-direction: column;">
+                                    <b>${candidateName}</b>
+                                    <span style="font-size: 0.75rem; color: var(--text-muted);">Réf: ${a.id.split('-')[0]}</span>
+                                </div>
+                            </td>
+                            <td>${jobTitle}</td>
+                            <td style="font-weight: 600; color: var(--secondary);">${monthlySalary} MAD <span style="font-size:0.7rem; font-weight:400; color:var(--text-muted);">/ mois</span></td>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div style="flex: 1; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px;">
+                                        <div style="width: ${aiRec.confidence || 0}%; height: 100%; background: var(--success); border-radius: 3px;"></div>
+                                    </div>
+                                    <span class="ai-badge">${aiRec.confidence || 0}%</span>
+                                </div>
+                            </td>
+                            <td>
+                                <button onclick="openModal('${a.id}', ${JSON.stringify(aiRec).replace(/\"/g, '&quot;')})" class="btn btn-primary" style="padding:6px 14px; font-size:0.8rem; background: var(--bg-panel);">Détails</button>
+                            </td>
+                        </tr>
+                    `;
                 }).join('');
             } catch (e) { console.error(e); }
         }
@@ -126,11 +182,9 @@
             if (aiRec) {
                 document.getElementById("ai-confidence").textContent = `Confiance: ${aiRec.confidence}%`;
                 document.getElementById("ai-justification").textContent = aiRec.justification;
-                document.getElementById("ai-risks").innerHTML = aiRec.risques.map(r => `• ${r}`).join('<br>');
-            } else {
-                document.getElementById("ai-confidence").textContent = `Confiance: N/A`;
-                document.getElementById("ai-justification").textContent = "L'analyse IA n'a pas été générée ou est indisponible pour ce candidat.";
-                document.getElementById("ai-risks").innerHTML = "Aucun risque analysé.";
+                document.getElementById("ai-risks-content").innerHTML = (aiRec.risques && aiRec.risques.length) 
+                    ? aiRec.risques.map(r => `• ${r}`).join('<br>')
+                    : "Aucun risque majeur détecté par l'IA.";
             }
             document.getElementById("modal-sign").style.display = "flex";
         }
@@ -152,3 +206,4 @@
     </script>
 </body>
 </html>
+

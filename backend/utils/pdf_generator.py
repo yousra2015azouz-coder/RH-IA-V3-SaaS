@@ -195,24 +195,69 @@ def generate_approval_pdf(data: dict) -> bytes:
     ]))
     elements.append(t_adv)
 
-    # --- APPROBATIONS (FORMAT MODÈLE) ---
+    # --- APPROBATIONS (FORMAT MODÈLE AVEC SIGNATURES) ---
     elements.append(Spacer(1, 0.5*cm))
+    
+    # Chemins vers les signatures extraites
+    sig_paths = {
+        "hierarchic": "backend/static/signatures/box_hierarchique.png",
+        "functional": "backend/static/signatures/box_fonctionnel.png",
+        "hr": "backend/static/signatures/box_rh.png",
+        "dg": "backend/static/signatures/box_dg.png"
+    }
+
+    from reportlab.platypus import Image as RLImage
+    
+    def make_sig_cell(role_key, data):
+        role_data = data.get("signatures", {}).get(role_key, {})
+        sig_img = None
+        if role_data.get("signed"):
+            try:
+                # Si signé, on peut mettre l'image de la signature
+                path = sig_paths.get(role_key)
+                if os.path.exists(path):
+                    sig_img = RLImage(path, width=4*cm, height=1.5*cm)
+            except:
+                pass
+        
+        info_text = f"Nom: {role_data.get('name', '')}<br/>Date: {role_data.get('date', '')}"
+        return [sig_img or Spacer(1, 1.5*cm), Paragraph(info_text, cell_style)]
+
     app_titles = [
         Paragraph("<b>Directeur Hiérarchique</b>", cell_style),
         Paragraph("<b>Directeur Fonctionnel</b>", cell_style),
         Paragraph("<b>Directeur RH</b>", cell_style),
         Paragraph("<b>Directeur Général</b>", cell_style)
     ]
-    app_boxes = [
-        [Paragraph("Nom:<br/>Date:", cell_style), Paragraph("Nom:<br/>Date:", cell_style), Paragraph("Nom:<br/>Date:", cell_style), Paragraph("Nom:<br/>Date:", cell_style)]
-    ]
     
+    # Création des colonnes de signatures
+    col_h = make_sig_cell("hierarchic", data)
+    col_f = make_sig_cell("functional", data)
+    col_rh = make_sig_cell("hr", data)
+    col_dg = make_sig_cell("dg", data)
+    
+    # Table des titres
     t_app_h = Table([app_titles], colWidths=[4.75*cm]*4)
-    t_app_h.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.black), ('BACKGROUND', (0,0), (-1,0), LABEL_BG), ('ALIGN', (0,0), (-1,-1), 'CENTER')]))
+    t_app_h.setStyle(TableStyle([
+        ('GRID', (0,0), (-1,-1), 0.5, colors.black), 
+        ('BACKGROUND', (0,0), (-1,0), LABEL_BG), 
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE')
+    ]))
     elements.append(t_app_h)
     
-    t_app_b = Table(app_boxes, colWidths=[4.75*cm]*4, rowHeights=[1.5*cm])
-    t_app_b.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.black), ('VALIGN', (0,0), (-1,-1), 'BOTTOM')]))
+    # Table des signatures (images + infos)
+    sig_table_data = [
+        [col_h[0], col_f[0], col_rh[0], col_dg[0]],
+        [col_h[1], col_f[1], col_rh[1], col_dg[1]]
+    ]
+    t_app_b = Table(sig_table_data, colWidths=[4.75*cm]*4, rowHeights=[1.5*cm, 0.8*cm])
+    t_app_b.setStyle(TableStyle([
+        ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+        ('VALIGN', (0,0), (-1,0), 'MIDDLE'),
+        ('ALIGN', (0,0), (-1,0), 'CENTER'),
+        ('BOTTOMPADDING', (0,1), (-1,1), 2)
+    ]))
     elements.append(t_app_b)
 
     doc.build(elements)

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analyser mon CV | RH-IA V3</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/assets/css/theme.css">
+    <style>
+        body { font-family:'Outfit',sans-serif; min-height:100vh; background:hsl(222,47%,6%); color:white; display:flex; align-items:center; justify-content:center; padding:2rem; }
+        .container { width:100%; max-width:780px; }
+        .header { text-align:center; margin-bottom:2.5rem; }
+        .step-badge { display:inline-block; background:rgba(52,211,153,0.1); border:1px solid rgba(52,211,153,0.2); color:hsl(160,60%,60%); padding:0.4rem 1rem; border-radius:100px; font-size:0.85rem; font-weight:600; margin-bottom:1rem; }
+        .header h1 { font-size:2rem; font-weight:800; margin-bottom:0.5rem; }
+        .header p { color:rgba(255,255,255,0.5); }
+        .upload-zone { border:2px dashed rgba(52,211,153,0.3); border-radius:20px; padding:3.5rem 2rem; text-align:center; background:rgba(52,211,153,0.02); cursor:pointer; transition:all 0.3s; margin-bottom:2rem; }
+        .upload-zone:hover,.upload-zone.drag-over { border-color:hsl(160,60%,45%); background:rgba(52,211,153,0.06); }
+        .upload-zone .icon { font-size:3.5rem; display:block; margin-bottom:1rem; }
+        .upload-zone h3 { font-size:1.2rem; font-weight:700; margin-bottom:0.5rem; }
+        .upload-zone p { color:rgba(255,255,255,0.4); font-size:0.9rem; }
+        .btn-browse { margin-top:1.2rem; padding:0.7rem 1.4rem; background:linear-gradient(135deg,hsl(160,60%,40%),hsl(160,60%,30%)); border-radius:10px; font-weight:600; color:white; border:none; cursor:pointer; font-family:'Outfit',sans-serif; }
+        #analysis-section { display:none; }
+        .card { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:20px; padding:2rem; margin-bottom:1.5rem; }
+        .progress-wrap { background:rgba(255,255,255,0.05); border-radius:100px; height:8px; overflow:hidden; margin:1rem 0; }
+        .progress-bar { height:100%; background:linear-gradient(90deg,hsl(160,60%,40%),hsl(160,60%,60%)); border-radius:100px; transition:width 0.8s ease; width:0%; }
+        .spinner { display:inline-block; width:18px; height:18px; border:2px solid rgba(52,211,153,0.2); border-top-color:hsl(160,60%,50%); border-radius:50%; animation:spin 0.8s linear infinite; vertical-align:middle; margin-left:8px; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        .extracted-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-top:1rem; }
+        .chip { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:0.9rem 1rem; }
+        .chip .lbl { font-size:0.72rem; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.3rem; }
+        .chip .val { font-size:0.95rem; font-weight:600; color:hsl(160,60%,65%); }
+        .skills-wrap { display:flex; flex-wrap:wrap; gap:0.5rem; margin-top:1rem; }
+        .skill-tag { background:rgba(52,211,153,0.08); border:1px solid rgba(52,211,153,0.15); color:hsl(160,60%,70%); padding:0.3rem 0.8rem; border-radius:100px; font-size:0.8rem; }
+        .btn-confirm { width:100%; padding:1rem; background:linear-gradient(135deg,hsl(160,60%,40%),hsl(160,60%,30%)); color:white; border:none; border-radius:14px; font-size:1rem; font-weight:700; cursor:pointer; font-family:'Outfit',sans-serif; margin-top:1rem; transition:all 0.3s; }
+        .btn-confirm:hover { transform:translateY(-2px); box-shadow:0 8px 25px rgba(52,211,153,0.3); }
+        @media(max-width:600px){ .extracted-grid{ grid-template-columns:1fr; } }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="step-badge">Étape 2 sur 2</div>
+        <h1>🤖 Analyse IA de votre CV</h1>
+        <p>Déposez votre CV PDF — nos algorithmes extrairont vos informations automatiquement.</p>
+    </div>
+
+    <div class="upload-zone" id="drop-zone">
+        <span class="icon">📄</span>
+        <h3>Glissez-déposez votre CV</h3>
+        <p>PDF uniquement · Max 10 MB</p>
+        <input type="file" id="cv-file" accept=".pdf" style="display:none">
+        <button class="btn-browse" onclick="document.getElementById('cv-file').click()">📂 Choisir un fichier</button>
+    </div>
+
+    <div id="analysis-section">
+        <div class="card">
+            <h3 id="analysis-title" style="font-size:1.1rem;font-weight:700;display:flex;align-items:center;gap:0.5rem;">
+                <span id="a-icon">⏳</span> Analyse en cours... <span id="a-spinner" class="spinner"></span>
+            </h3>
+            <div class="progress-wrap"><div class="progress-bar" id="prog-bar"></div></div>
+            <p id="a-status" style="color:rgba(255,255,255,0.5);font-size:0.9rem;">Initialisation...</p>
+        </div>
+
+        <div class="card" id="results-card" style="display:none;">
+            <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:0.5rem;">✅ Données extraites par l'IA</h3>
+            <p style="color:rgba(255,255,255,0.4);font-size:0.85rem;">Vérifiez et complétez les informations manquantes sur votre profil.</p>
+            <div class="extracted-grid" id="ext-grid"></div>
+            <div id="skills-sec" style="display:none;margin-top:1.2rem;">
+                <div style="font-size:0.72rem;color:rgba(255,255,255,0.4);text-transform:uppercase;margin-bottom:0.5rem;">Compétences détectées</div>
+                <div class="skills-wrap" id="skills-list"></div>
+            </div>
+            <button class="btn-confirm" onclick="confirmAndGo()">Confirmer et accéder à mon profil →</button>
+        </div>
+    </div>
+</div>
+
+<script src="/static/assets/js/api.js"></script>
+<script>
+    const token = localStorage.getItem('access_token');
+    if (!token) window.location.href = '/static/portal/register.html';
+
+    const dropZone = document.getElementById('drop-zone');
+    document.getElementById('cv-file').addEventListener('change', e => { if(e.target.files[0]) processFile(e.target.files[0]); });
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault(); dropZone.classList.remove('drag-over');
+        const f = e.dataTransfer.files[0];
+        if (f && f.type === 'application/pdf') processFile(f);
+        else alert('Fichier PDF requis.');
+    });
+
+    async function processFile(file) {
+        dropZone.style.display = 'none';
+        document.getElementById('analysis-section').style.display = 'block';
+        const bar = document.getElementById('prog-bar');
+        const status = document.getElementById('a-status');
+        const steps = [[20,'Lecture PDF...'],[50,'Extraction texte...'],[75,'Analyse GROQ Llama3...'],[90,'Structuration des données...']];
+        for (const [p, m] of steps) { bar.style.width=p+'%'; status.textContent=m; await sleep(600); }
+        try {
+            const fd = new FormData();
+            fd.append('file', file);
+            const res = await fetch('/api/v1/candidate/upload-cv', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:fd });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Erreur');
+            bar.style.width='100%'; status.textContent='Terminé !';
+            document.getElementById('a-icon').textContent='✅';
+            document.getElementById('analysis-title').childNodes[1].textContent=' CV analysé avec succès';
+            document.getElementById('a-spinner').style.display='none';
+            showResults(data.extracted_data || {});
+            localStorage.setItem('ai_extracted', JSON.stringify(data.extracted_data || {}));
+        } catch(err) {
+            document.getElementById('a-icon').textContent='❌';
+            status.textContent = err.message;
+            document.getElementById('a-spinner').style.display='none';
+        }
+    }
+
+    function showResults(d) {
+        const fields = [
+            {k:'first_name',l:'Prénom'},{k:'last_name',l:'Nom'},{k:'email',l:'Email'},
+            {k:'phone',l:'Téléphone'},{k:'ville',l:'Ville'},{k:'diplome',l:'Diplôme'},
+            {k:'etablissement',l:'Établissement'},{k:'dernier_poste',l:'Dernier poste'},
+            {k:'annees_experience',l:'Expérience'}
+        ];
+        document.getElementById('ext-grid').innerHTML = fields.map(f=>`
+            <div class="chip"><div class="lbl">${f.l}</div><div class="val">${d[f.k]||'—'}</div></div>
+        `).join('');
+        if (d.competences && d.competences.length) {
+            document.getElementById('skills-sec').style.display='block';
+            document.getElementById('skills-list').innerHTML = d.competences.map(s=>`<span class="skill-tag">${s}</span>`).join('');
+        }
+        document.getElementById('results-card').style.display='block';
+    }
+
+    function confirmAndGo() { window.location.href='/static/portal/profile.html'; }
+    function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
+</script>
+</body>
+</html>

@@ -42,3 +42,35 @@ async def onboarding_stats(request: Request, user=Depends(require_roles(HR_ROLES
         "completed_tasks": done.count or 0,
         "progress_rate": round((done.count or 0) / max(total.count or 1, 1) * 100, 1)
     }
+
+@router.get("/my-tasks")
+async def get_my_tasks(user=Depends(require_roles(["employe", "candidat"] + ALL_STAFF))):
+    """
+    Retourne les tâches d'onboarding de l'employé connecté.
+    Accessible par l'employé lui-même via son user_id → employee_id.
+    """
+    # Trouver l'employé lié à ce user via la table candidates → employees
+    cand_res = supabase_admin.table("candidates").select("id").eq("user_id", user["id"]).limit(1).execute()
+    candidates = get_data(cand_res) or []
+
+    if not candidates:
+        return {"tasks": [], "employee": None}
+
+    candidate_id = candidates[0]["id"]
+
+    # Trouver l'employé lié à ce candidat
+    emp_res = supabase_admin.table("employees").select("id, full_name, date_embauche, poste, onboarding_status").eq("candidate_id", candidate_id).limit(1).execute()
+    employees = get_data(emp_res) or []
+
+    if not employees:
+        return {"tasks": [], "employee": None}
+
+    employee_id = employees[0]["id"]
+
+    # Récupérer les tâches
+    tasks_res = supabase_admin.table("onboarding_tasks").select("*").eq("employee_id", employee_id).order("created_at").execute()
+
+    return {
+        "tasks": get_data(tasks_res) or [],
+        "employee": employees[0]
+    }

@@ -58,7 +58,7 @@
     <div class="zellige-overlay"></div>
     <div class="detail-container">
         <div class="job-header">
-            <a href="index.html" style="color: var(--text-muted); text-decoration: none; font-size: 0.9rem;">← Retour aux offres</a>
+            <a href="dashboard.html" style="color: var(--text-muted); text-decoration: none; font-size: 0.9rem;">← Retour au tableau de bord</a>
             <h1 id="job-title" style="margin-top: 1.5rem; font-size: 2.5rem; color: white;">Chargement...</h1>
             <div id="job-meta" style="color: var(--text-muted); margin-top: 0.5rem; display: flex; gap: 20px;"></div>
         </div>
@@ -108,10 +108,12 @@
     <script src="/static/assets/js/api.js"></script>
     <script>
         const params = new URLSearchParams(window.location.search);
-        const jobId = params.get("job_id");
+        // Accepter id ou job_id pour plus de flexibilité
+        const jobId = params.get("id") || params.get("job_id");
 
         async function loadJobDetail() {
             try {
+                // 1. Charger les détails de l'offre
                 const data = await apiClient.get(`/jobs/public/demo/${jobId}`);
                 const job = data.job;
 
@@ -127,12 +129,38 @@
                 document.getElementById("info-ref").textContent = job.reference || "OFFRE-" + job.id.substring(0,8);
                 document.getElementById("info-entity").textContent = job.entity_organisationnelle;
 
-                document.getElementById("apply-btn").onclick = () => {
-                    window.location.href = `apply.html?job_id=${job.id}`;
-                };
+                // 2. Vérifier si l'utilisateur a déjà postulé
+                const token = apiClient.getToken();
+                const applyBtn = document.getElementById("apply-btn");
+
+                if (token) {
+                    try {
+                        const appRes = await apiClient.get('/candidate/applications');
+                        const alreadyApplied = (appRes.applications || []).some(a => a.job_offers && a.job_offers.id === jobId);
+                        
+                        if (alreadyApplied) {
+                            applyBtn.innerHTML = "✅ Candidature déjà envoyée";
+                            applyBtn.disabled = true;
+                            applyBtn.style.background = "#94a3b8"; // Gris neutre
+                            applyBtn.style.color = "white";
+                            applyBtn.style.cursor = "default";
+                        } else {
+                            applyBtn.onclick = () => window.location.href = `apply.html?job_id=${jobId}`;
+                        }
+                    } catch (e) {
+                        console.error("Erreur check application:", e);
+                        applyBtn.onclick = () => window.location.href = `apply.html?job_id=${jobId}`;
+                    }
+                } else {
+                    // Non connecté
+                    applyBtn.innerHTML = '🔐 Se connecter pour postuler';
+                    applyBtn.onclick = () => {
+                        window.location.href = `/static/auth/login.html?redirect=${encodeURIComponent(window.location.href)}`;
+                    };
+                }
             } catch (error) {
                 console.error(error);
-                alert("Erreur lors du chargement des détails.");
+                alert("Erreur lors du chargement des détails de l'offre.");
             }
         }
 

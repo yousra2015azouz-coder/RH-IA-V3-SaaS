@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mon Espace Employé | RH-IA V3</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/assets/css/theme.css">
+    <style>
+        body{font-family:'Outfit',sans-serif;min-height:100vh;background:hsl(222,47%,6%);color:white;}
+        .layout{display:grid;grid-template-columns:260px 1fr;min-height:100vh;}
+        .sidebar{position:relative;background:rgba(255,255,255,0.02);border-right:1px solid rgba(255,255,255,0.06);padding:2rem 1.5rem;display:flex;flex-direction:column;gap:0.5rem;height:auto;width:auto;}
+        .logo{font-size:1.3rem;font-weight:800;color:hsl(160,60%,60%);margin-bottom:1.5rem;}
+        .user-box{background:linear-gradient(135deg,rgba(52,211,153,0.08),rgba(52,211,153,0.03));border:1px solid rgba(52,211,153,0.15);border-radius:14px;padding:1.2rem;margin-bottom:1.5rem;}
+        .user-box .avatar{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,hsl(160,60%,35%),hsl(160,60%,25%));display:flex;align-items:center;justify-content:center;font-size:1.2rem;margin-bottom:0.8rem;}
+        .user-box .name{font-weight:700;font-size:1rem;}
+        .user-box .role-badge{display:inline-block;background:rgba(52,211,153,0.1);color:hsl(160,60%,60%);font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:6px;margin-top:4px;text-transform:uppercase;letter-spacing:0.05em;}
+        .nav-link{display:flex;align-items:center;gap:0.8rem;padding:0.75rem 1rem;border-radius:12px;color:rgba(255,255,255,0.6);text-decoration:none;font-size:0.95rem;font-weight:500;transition:all 0.2s;border:none;background:none;cursor:pointer;width:100%;text-align:left;font-family:'Outfit',sans-serif;}
+        .nav-link:hover{background:rgba(255,255,255,0.05);color:white;}
+        .nav-link.active{background:rgba(52,211,153,0.1);color:hsl(160,60%,65%);border:1px solid rgba(52,211,153,0.15);}
+        .nav-link.logout{color:rgba(239,68,68,0.7);margin-top:auto;}
+        .main{padding:2.5rem;overflow-y:auto;}
+        /* Welcome Banner */
+        .welcome-banner{background:linear-gradient(135deg,hsl(222,47%,10%),hsl(160,40%,10%));border:1px solid rgba(52,211,153,0.15);border-radius:20px;padding:2rem 2.5rem;margin-bottom:2rem;display:flex;justify-content:space-between;align-items:center;}
+        .welcome-banner h1{font-size:1.8rem;font-weight:800;margin-bottom:0.3rem;}
+        .welcome-banner p{color:rgba(255,255,255,0.5);font-size:0.95rem;}
+        .welcome-banner .badge-employe{background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.2);color:hsl(160,60%,65%);padding:0.4rem 1rem;border-radius:100px;font-size:0.85rem;font-weight:700;}
+        /* KPI Grid */
+        .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:2rem;}
+        .kpi-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:1.5rem;text-align:center;transition:all 0.3s;}
+        .kpi-card:hover{border-color:rgba(52,211,153,0.2);transform:translateY(-2px);}
+        .kpi-card .icon{font-size:1.8rem;margin-bottom:0.5rem;}
+        .kpi-card .num{font-size:1.8rem;font-weight:800;color:hsl(160,60%,60%);}
+        .kpi-card .lbl{font-size:0.8rem;color:rgba(255,255,255,0.4);margin-top:0.3rem;}
+        /* Section Cards */
+        .section-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:20px;padding:2rem;margin-bottom:1.5rem;}
+        .section-card h2{font-size:1.1rem;font-weight:700;margin-bottom:1.5rem;display:flex;align-items:center;gap:0.5rem;}
+        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;}
+        /* Onboarding Tasks */
+        .task-item{display:flex;align-items:center;gap:1rem;padding:1rem;border-radius:12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);margin-bottom:0.8rem;transition:all 0.2s;}
+        .task-item:hover{background:rgba(255,255,255,0.04);}
+        .task-check{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;}
+        .task-check.done{background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);}
+        .task-check.pending{background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);}
+        .task-info .title{font-weight:600;font-size:0.95rem;}
+        .task-info .cat{font-size:0.78rem;color:rgba(255,255,255,0.4);margin-top:2px;}
+        .task-status{margin-left:auto;font-size:0.75rem;font-weight:700;padding:3px 10px;border-radius:100px;}
+        .status-done{background:rgba(16,185,129,0.1);color:#34d399;}
+        .status-pending{background:rgba(245,158,11,0.1);color:#fcd34d;}
+        /* Info Profile */
+        .info-row{display:flex;justify-content:space-between;align-items:center;padding:0.8rem 0;border-bottom:1px solid rgba(255,255,255,0.05);}
+        .info-row:last-child{border-bottom:none;}
+        .info-row .lbl{font-size:0.85rem;color:rgba(255,255,255,0.4);}
+        .info-row .val{font-size:0.9rem;font-weight:600;}
+        /* Progress Ring */
+        .progress-section{text-align:center;padding:1rem;}
+        .progress-ring-wrap{position:relative;width:100px;height:100px;margin:0 auto 1rem;}
+        .progress-ring-wrap svg{transform:rotate(-90deg);}
+        .progress-ring-num{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:1.5rem;font-weight:800;color:hsl(160,60%,60%);}
+        /* Contact HR */
+        .hr-card{background:linear-gradient(135deg,rgba(52,211,153,0.06),rgba(52,211,153,0.02));border:1px solid rgba(52,211,153,0.12);border-radius:16px;padding:1.5rem;text-align:center;}
+        .hr-card h3{font-size:1rem;font-weight:700;margin-bottom:0.5rem;}
+        .hr-card p{font-size:0.85rem;color:rgba(255,255,255,0.4);margin-bottom:1rem;}
+        .btn-contact{display:inline-block;padding:0.6rem 1.2rem;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.2);color:hsl(160,60%,65%);border-radius:10px;font-size:0.85rem;font-weight:600;cursor:pointer;transition:all 0.2s;border-style:solid;font-family:'Outfit',sans-serif;}
+        .btn-contact:hover{background:rgba(52,211,153,0.15);}
+        /* Empty */
+        .empty{text-align:center;padding:2rem;color:rgba(255,255,255,0.3);}
+        @media(max-width:768px){.layout{grid-template-columns:1fr;}.sidebar{display:none;}.kpi-grid{grid-template-columns:1fr 1fr;}.two-col{grid-template-columns:1fr;}}
+    </style>
+</head>
+<body>
+<div class="layout">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="logo">🚀 RH-IA V3</div>
+        <div class="user-box">
+            <div class="avatar">👔</div>
+            <div class="name" id="emp-name">Employé</div>
+            <div class="role-badge">Employé Actif</div>
+        </div>
+        <a class="nav-link active" href="/static/portal/employee-dashboard.html">🏠 Mon Tableau de Bord</a>
+        <a class="nav-link" href="/static/portal/profile.html">👤 Mon Profil</a>
+        <button class="nav-link logout" onclick="logout()">🚪 Déconnexion</button>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+        <!-- Welcome Banner -->
+        <div class="welcome-banner">
+            <div>
+                <h1>Bienvenue, <span id="welcome-name">—</span> 👋</h1>
+                <p>Voici votre espace de travail personnel. Suivez votre intégration et accédez à vos informations.</p>
+            </div>
+            <span class="badge-employe">✅ Employé Confirmé</span>
+        </div>
+
+        <!-- KPI Grid -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="icon">📋</div>
+                <div class="num" id="kpi-tasks">—</div>
+                <div class="lbl">Tâches d'intégration</div>
+            </div>
+            <div class="kpi-card">
+                <div class="icon">✅</div>
+                <div class="num" id="kpi-done" style="color:#34d399;">—</div>
+                <div class="lbl">Tâches complétées</div>
+            </div>
+            <div class="kpi-card">
+                <div class="icon">📅</div>
+                <div class="num" id="kpi-hire" style="font-size:1rem;padding-top:0.5rem;">—</div>
+                <div class="lbl">Date d'embauche</div>
+            </div>
+            <div class="kpi-card">
+                <div class="icon">🎯</div>
+                <div class="num" id="kpi-progress">—%</div>
+                <div class="lbl">Progression intégration</div>
+            </div>
+        </div>
+
+        <div class="two-col">
+            <!-- LEFT: Onboarding Tasks -->
+            <div class="section-card">
+                <h2>📋 Mon Parcours d'Intégration</h2>
+                <div id="tasks-list">
+                    <div class="empty">⏳ Chargement...</div>
+                </div>
+            </div>
+
+            <!-- RIGHT: Info + Contact -->
+            <div>
+                <div class="section-card">
+                    <h2>👔 Mes Informations</h2>
+                    <div id="emp-info">
+                        <div class="empty">⏳ Chargement...</div>
+                    </div>
+                </div>
+
+                <div class="hr-card">
+                    <h3>💬 Besoin d'aide ?</h3>
+                    <p>Contactez votre DRH pour toute question relative à votre intégration.</p>
+                    <button class="btn-contact">📧 Contacter le DRH</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/assets/js/api.js"></script>
+<script>
+    const token = localStorage.getItem('access_token');
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    if (!token) window.location.href = '/static/auth/login.html';
+
+    // Vérifier que c'est bien un employé
+    if (user.role && user.role !== 'employe' && user.role !== 'candidat') {
+        window.location.href = '/static/auth/login.html';
+    }
+
+    // Afficher le nom
+    const displayName = user.first_name || user.email?.split('@')[0] || 'Employé';
+    document.getElementById('emp-name').textContent = displayName;
+    document.getElementById('welcome-name').textContent = displayName;
+
+    async function loadEmployeeData() {
+        try {
+            // Récupérer les infos employé via le profil candidat (lié par user_id)
+            const profileRes = await apiClient.get('/candidate/profile');
+            const profile = profileRes.profile || {};
+
+            // Infos personnelles
+            document.getElementById('emp-info').innerHTML = `
+                <div class="info-row"><span class="lbl">Nom complet</span><span class="val">${(profile.first_name||'')+' '+(profile.last_name||'')}</span></div>
+                <div class="info-row"><span class="lbl">Email</span><span class="val">${profile.email || user.email || '—'}</span></div>
+                <div class="info-row"><span class="lbl">Téléphone</span><span class="val">${profile.phone || '—'}</span></div>
+                <div class="info-row"><span class="lbl">Poste</span><span class="val">${profile.dernier_poste || '—'}</span></div>
+                <div class="info-row"><span class="lbl">Ville</span><span class="val">${profile.ville || '—'}</span></div>
+            `;
+        } catch(e) {
+            document.getElementById('emp-info').innerHTML = `
+                <div class="info-row"><span class="lbl">Email</span><span class="val">${user.email || '—'}</span></div>
+                <div class="empty" style="padding:1rem;">Profil en cours de configuration</div>
+            `;
+        }
+
+        // Récupérer les tâches d'onboarding
+        try {
+            const onboardingRes = await apiClient.get('/onboarding/my-tasks');
+            const tasks = onboardingRes.tasks || [];
+
+            const total = tasks.length;
+            const done = tasks.filter(t => t.status === 'COMPLETED').length;
+            const pct = total > 0 ? Math.round((done/total)*100) : 0;
+
+            document.getElementById('kpi-tasks').textContent = total;
+            document.getElementById('kpi-done').textContent = done;
+            document.getElementById('kpi-progress').textContent = pct + '%';
+
+            if (tasks.length === 0) {
+                document.getElementById('tasks-list').innerHTML = '<div class="empty"><div>📭</div><p>Aucune tâche pour le moment.</p></div>';
+                return;
+            }
+
+            document.getElementById('tasks-list').innerHTML = tasks.map(t => `
+                <div class="task-item">
+                    <div class="task-check ${t.status === 'COMPLETED' ? 'done' : 'pending'}">
+                        ${t.status === 'COMPLETED' ? '✅' : '⏳'}
+                    </div>
+                    <div class="task-info">
+                        <div class="title" style="${t.status === 'COMPLETED' ? 'text-decoration:line-through;opacity:0.6;' : ''}">${t.title}</div>
+                        <div class="cat">Catégorie : ${t.category}</div>
+                    </div>
+                    <span class="task-status ${t.status === 'COMPLETED' ? 'status-done' : 'status-pending'}">
+                        ${t.status === 'COMPLETED' ? 'Terminé' : 'En attente'}
+                    </span>
+                </div>
+            `).join('');
+        } catch(e) {
+            document.getElementById('tasks-list').innerHTML = '<div class="empty"><p>Tâches en cours de préparation par le DRH.</p></div>';
+            document.getElementById('kpi-tasks').textContent = '—';
+            document.getElementById('kpi-done').textContent = '—';
+            document.getElementById('kpi-progress').textContent = '—%';
+        }
+    }
+
+    function logout() { localStorage.clear(); window.location.href = '/static/auth/login.html'; }
+
+    loadEmployeeData();
+</script>
+</body>
+</html>

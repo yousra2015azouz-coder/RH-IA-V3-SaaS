@@ -57,9 +57,15 @@ async def create_job(job: JobOfferCreate, request: Request,
         "title", "reference", "entity_organisationnelle", "site", "fonction",
         "type_remuneration", "grade", "salaire_base", "indemnite_panier",
         "indemnite_transport", "prime_loyer", "prime_aid", "taux_cimr",
-        "description", "requirements", "is_budgeted"
+        "description", "requirements", "is_budgeted", "expiry_date"
     ]
     payload = {k: v for k, v in job_data.items() if k in db_fields}
+    
+    # Convertir les dates en chaînes de caractères pour la sérialisation JSON
+    from datetime import date, datetime
+    for k, v in payload.items():
+        if isinstance(v, (date, datetime)):
+            payload[k] = v.isoformat()
     
     result = supabase_admin.table("job_offers").insert({
         "tenant_id": user["tenant_id"],
@@ -169,6 +175,58 @@ async def apply_to_job(
         "status": "submitted",
         "candidate_id": candidate["id"],
         "message": "Candidature reçue. Analyse CV en cours."
+    }
+
+
+@router.post("/jobs/{job_id}/apply-existing")
+async def apply_existing_candidate(
+    job_id: str,
+    background_tasks: BackgroundTasks,
+    user=Depends(get_current_user)
+):
+    """Lier un candidat connecté (déjà inscrit) à une nouvelle offre."""
+    # 1. Vérifier l'offre
+    job_res = supabase_admin.table("job_offers").select("*").eq(
+        "id", job_id).eq("is_published", True).execute()
+    jobs = get_data(job_res) or []
+    if not jobs:
+        raise HTTPException(404, "Offre non trouvée ou non publiée")
+    job = jobs[0]
+
+    # 2. Récupérer le profil candidat existant
+    cand_res = supabase_admin.table("candidates").select("*").eq("user_id", user["id"]).execute()
+    cands = get_data(cand_res) or []
+    if not cands:
+        raise HTTPException(404, "Profil candidat non trouvé. Veuillez d'abord compléter votre profil.")
+    
+    candidate = cands[0]
+
+    # 3. Mettre à jour l'offre (ou créer une nouvelle candidature si on gérait plusieurs offres, 
+    # mais ici on met à jour le profil existant)
+    update_res = supabase_admin.table("candidates").update({
+        "job_offer_id": job_id,
+        "pipeline_stage": "applied"
+    }).eq("id", candidate["id"]).execute()
+    
+    # 4. Déclencher l'analyse IA (Recalcul du score pour ce poste spécifique)
+    # On récupère le CV depuis le storage
+    if candidate.get("cv_url"):
+        try:
+            cv_response = supabase_admin.storage.from_("documents").download(candidate["cv_url"])
+            background_tasks.add_task(
+                process_cv_and_score,
+                candidate["id"],
+                job["tenant_id"],
+                cv_response,
+                job.get("requirements", "")
+            )
+        except Exception as e:
+            logger.error(f"Erreur récupération CV pour scoring: {e}")
+
+    return {
+        "status": "submitted",
+        "candidate_id": candidate["id"],
+        "message": "Candidature confirmée. L'IA analyse votre profil pour ce poste."
     }
 
 

@@ -24,6 +24,7 @@ class JobOfferCreate(BaseModel):
     requirements: Optional[str] = None
     is_budgeted: bool = False
     recruitment_reason: Optional[str] = "Renforcement de l'équipe"
+    expiry_date: Optional[date] = None
 
 
 class JobOfferUpdate(BaseModel):

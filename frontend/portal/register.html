@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inscription Candidat | RH-IA V3</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/assets/css/theme.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Outfit', sans-serif; min-height: 100vh; background: hsl(222, 47%, 6%); display: grid; grid-template-columns: 1fr 1fr; }
+
+        /* ── LEFT PANEL ── */
+        .left-panel { background: linear-gradient(135deg, hsl(222, 47%, 8%) 0%, hsl(160, 60%, 12%) 100%); display: flex; flex-direction: column; justify-content: center; padding: 4rem; position: relative; overflow: hidden; }
+        .left-panel .logo { font-size: 1.5rem; font-weight: 800; color: hsl(160, 60%, 60%); margin-bottom: 3rem; }
+        .left-panel h1 { font-size: 2.8rem; font-weight: 800; line-height: 1.2; color: white; margin-bottom: 1.5rem; }
+        .left-panel h1 span { color: hsl(160, 60%, 60%); }
+        .left-panel p { color: rgba(255,255,255,0.6); font-size: 1.1rem; line-height: 1.7; max-width: 400px; }
+
+        /* ── RIGHT PANEL ── */
+        .right-panel { display: flex; align-items: center; justify-content: center; padding: 3rem; background: hsl(222, 47%, 7%); }
+        .register-card { width: 100%; max-width: 480px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 24px; padding: 2.5rem; }
+        .register-card h2 { font-size: 1.8rem; font-weight: 700; color: white; margin-bottom: 0.5rem; }
+        .register-card p { color: rgba(255,255,255,0.5); font-size: 0.95rem; margin-bottom: 2rem; }
+
+        .form-group { margin-bottom: 1.2rem; }
+        .form-group label { display: block; color: rgba(255,255,255,0.7); font-size: 0.9rem; margin-bottom: 0.5rem; font-weight: 500; }
+        .form-control { width: 100%; padding: 0.85rem 1rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: white; font-size: 0.95rem; font-family: 'Outfit', sans-serif; outline: none; transition: all 0.2s; }
+        .form-control:focus { border-color: hsl(160, 60%, 45%); background: rgba(52,211,153,0.04); }
+
+        /* CV Upload Area */
+        .upload-area { border: 2px dashed rgba(52,211,153,0.3); border-radius: 16px; padding: 2rem 1.5rem; text-align: center; background: rgba(52,211,153,0.02); cursor: pointer; transition: all 0.2s; margin-top: 1rem; }
+        .upload-area:hover { border-color: hsl(160, 60%, 50%); background: rgba(52,211,153,0.05); }
+        .upload-area.has-file { border-style: solid; border-color: hsl(160, 60%, 50%); background: rgba(52,211,153,0.1); }
+        .upload-area .icon { font-size: 2rem; margin-bottom: 0.5rem; display: block; }
+        .upload-area .text { font-size: 0.9rem; color: rgba(255,255,255,0.6); }
+        .upload-area .file-name { font-weight: 600; color: hsl(160, 60%, 60%); display: none; margin-top: 0.5rem; }
+
+        .btn-submit { width: 100%; padding: 1rem; background: linear-gradient(135deg, hsl(160, 60%, 40%), hsl(160, 60%, 30%)); color: white; border: none; border-radius: 12px; font-size: 1rem; font-weight: 700; cursor: pointer; font-family: 'Outfit', sans-serif; transition: all 0.3s; margin-top: 1.5rem; }
+        .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(52,211,153,0.3); }
+        .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Loader Overlay */
+        #loader-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10, 15, 30, 0.9); z-index: 1000; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        .spinner { width: 50px; height: 50px; border: 4px solid rgba(52,211,153,0.1); border-top-color: hsl(160, 60%, 50%); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 1.5rem; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { font-size: 1.2rem; font-weight: 600; color: white; text-align: center; }
+        .loading-sub { font-size: 0.9rem; color: rgba(255,255,255,0.5); margin-top: 0.5rem; }
+
+        .alert { padding: 0.8rem 1rem; border-radius: 10px; font-size: 0.9rem; margin-bottom: 1rem; display: none; }
+        .alert-error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: #fca5a5; }
+
+        @media (max-width: 768px) { body { grid-template-columns: 1fr; } .left-panel { display: none; } }
+    </style>
+</head>
+<body>
+    <div id="loader-overlay">
+        <div class="spinner"></div>
+        <div class="loading-text">Analyse IA en cours...</div>
+        <div class="loading-sub">Nous extrayons vos informations pour préparer votre profil.</div>
+    </div>
+
+    <div class="left-panel">
+        <div class="logo">🚀 RH-IA V3</div>
+        <h1>Votre carrière <span>commence ici</span></h1>
+        <p>Inscrivez-vous et déposez votre CV. Notre IA s'occupe de remplir votre profil automatiquement.</p>
+    </div>
+
+    <div class="right-panel">
+        <div class="register-card">
+            <h2>Créer mon espace</h2>
+            <p>Une seule étape pour lancer votre carrière.</p>
+
+            <div id="alert-error" class="alert alert-error"></div>
+
+            <form id="register-form">
+                <div class="form-group">
+                    <label>Email *</label>
+                    <input type="email" id="email" class="form-control" placeholder="votre@email.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Mot de passe * <span style="color:rgba(255,255,255,0.3); font-size:0.8rem;">(min. 6 car.)</span></label>
+                    <input type="password" id="password" class="form-control" placeholder="••••••••" minlength="6" required>
+                </div>
+
+                <label>Votre CV (PDF) *</label>
+                <div class="upload-area" id="upload-area" onclick="document.getElementById('cv-file').click()">
+                    <span class="icon">📄</span>
+                    <span class="text" id="upload-text">Cliquez ou glissez votre CV ici</span>
+                    <span class="file-name" id="file-name"></span>
+                    <input type="file" id="cv-file" accept=".pdf" style="display:none" required>
+                </div>
+
+                <button type="submit" id="submit-btn" class="btn-submit">
+                    Créer mon profil avec l'IA →
+                </button>
+            </form>
+            <div style="text-align:center; margin-top:1.5rem; font-size:0.9rem;">
+                Déjà un compte ? <a href="/static/auth/login.html" style="color:hsl(160,60%,60%); text-decoration:none; font-weight:600;">Se connecter</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/assets/js/api.js"></script>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const tenantSlug = params.get('tenant') || 'demo';
+        
+        const fileInput = document.getElementById('cv-file');
+        const uploadArea = document.getElementById('upload-area');
+        const fileNameDisp = document.getElementById('file-name');
+        const uploadText = document.getElementById('upload-text');
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files[0]) {
+                const name = e.target.files[0].name;
+                fileNameDisp.textContent = name;
+                fileNameDisp.style.display = 'block';
+                uploadText.style.display = 'none';
+                uploadArea.classList.add('has-file');
+            }
+        });
+
+        document.getElementById('register-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const loader = document.getElementById('loader-overlay');
+            const errBox = document.getElementById('alert-error');
+
+            if (!fileInput.files[0]) { alert('Veuillez uploader votre CV.'); return; }
+
+            loader.style.display = 'flex';
+            errBox.style.display = 'none';
+
+            try {
+                const formData = new FormData();
+                formData.append('email', document.getElementById('email').value);
+                formData.append('password', document.getElementById('password').value);
+                formData.append('tenant_slug', tenantSlug);
+                formData.append('file', fileInput.files[0]);
+
+                const res = await fetch('/api/v1/candidate/register-with-cv', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+
+                if (!res.ok) throw new Error(data.detail || 'Erreur lors de l\'inscription');
+
+                // Connexion automatique après inscription réussie
+                const loginRes = await apiClient.post('/auth/login', {
+                    email: document.getElementById('email').value,
+                    password: document.getElementById('password').value
+                });
+                
+                localStorage.setItem('access_token', loginRes.access_token);
+                localStorage.setItem('user', JSON.stringify(loginRes.user));
+                localStorage.setItem('rh_user', JSON.stringify(loginRes.user));
+
+                window.location.href = '/static/portal/profile.html?status=welcome';
+
+            } catch (err) {
+                loader.style.display = 'none';
+                errBox.textContent = '❌ ' + err.message;
+                errBox.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

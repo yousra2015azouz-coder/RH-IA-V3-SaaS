@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mes Candidatures | RH-IA V3</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/assets/css/theme.css">
+    <style>
+        body{font-family:'Outfit',sans-serif;min-height:100vh;background:hsl(222,47%,6%);color:white;}
+        .layout{display:grid;grid-template-columns:260px 1fr;min-height:100vh;}
+        .sidebar{position:relative;background:rgba(255,255,255,0.02);border-right:1px solid rgba(255,255,255,0.06);padding:2rem 1.5rem;display:flex;flex-direction:column;gap:0.5rem;height:auto;width:auto;}
+        .logo{font-size:1.3rem;font-weight:800;color:hsl(160,60%,60%);margin-bottom:2rem;}
+        .nav-link{display:flex;align-items:center;gap:0.8rem;padding:0.75rem 1rem;border-radius:12px;color:rgba(255,255,255,0.6);text-decoration:none;font-size:0.95rem;font-weight:500;transition:all 0.2s;border:none;background:none;cursor:pointer;width:100%;text-align:left;}
+        .nav-link:hover{background:rgba(255,255,255,0.05);color:white;}
+        .nav-link.active{background:rgba(52,211,153,0.1);color:hsl(160,60%,65%);border:1px solid rgba(52,211,153,0.15);}
+        .nav-link.logout{color:rgba(239,68,68,0.7);margin-top:auto;}
+        .user-box{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:1rem;margin-bottom:1.5rem;}
+        .user-box .name{font-weight:700;font-size:0.95rem;}
+        .user-box .role{font-size:0.75rem;color:hsl(160,60%,60%);font-weight:600;margin-top:2px;}
+        .main{padding:2.5rem;overflow-y:auto;}
+        .page-header{margin-bottom:2rem;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;}
+        .page-header h1{font-size:2rem;font-weight:800;}
+        .page-header p{color:rgba(255,255,255,0.5);margin-top:0.3rem;font-size:0.95rem;}
+        .btn-primary{padding:0.8rem 1.5rem;background:linear-gradient(135deg,hsl(160,60%,40%),hsl(160,60%,30%));color:white;border:none;border-radius:12px;font-weight:700;cursor:pointer;font-family:'Outfit',sans-serif;text-decoration:none;font-size:0.9rem;}
+        /* KPI Cards */
+        .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:2rem;}
+        .kpi-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:1.5rem;text-align:center;}
+        .kpi-card .num{font-size:2rem;font-weight:800;color:hsl(160,60%,60%);}
+        .kpi-card .lbl{font-size:0.8rem;color:rgba(255,255,255,0.4);margin-top:0.3rem;}
+        /* Section */
+        .section-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:20px;padding:2rem;margin-bottom:1.5rem;}
+        .section-card h2{font-size:1.1rem;font-weight:700;margin-bottom:1.5rem;}
+        /* Applications Table */
+        table{width:100%;border-collapse:collapse;}
+        thead tr{border-bottom:1px solid rgba(255,255,255,0.06);}
+        th{text-align:left;padding:0.8rem 1rem;font-size:0.75rem;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;}
+        td{padding:1rem;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.9rem;vertical-align:middle;}
+        tbody tr:last-child td{border-bottom:none;}
+        tbody tr:hover td{background:rgba(255,255,255,0.02);}
+        /* Badges */
+        .badge{padding:4px 12px;border-radius:100px;font-size:0.75rem;font-weight:700;display:inline-block;}
+        .badge-success{background:rgba(16,185,129,0.1);color:#34d399;border:1px solid rgba(16,185,129,0.2);}
+        .badge-danger{background:rgba(239,68,68,0.1);color:#fca5a5;border:1px solid rgba(239,68,68,0.2);}
+        .badge-warning{background:rgba(245,158,11,0.1);color:#fcd34d;border:1px solid rgba(245,158,11,0.2);}
+        .badge-info{background:rgba(59,130,246,0.1);color:#93c5fd;border:1px solid rgba(59,130,246,0.2);}
+        /* Score */
+        .score-pill{padding:4px 12px;border-radius:100px;font-weight:800;font-size:0.8rem;color:white;display:inline-block;}
+        /* Jobs Grid */
+        .jobs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem;}
+        .job-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:1.5rem;transition:all 0.3s;}
+        .job-card:hover{border-color:rgba(52,211,153,0.2);background:rgba(52,211,153,0.03);transform:translateY(-2px);}
+        .job-card h3{font-size:1rem;font-weight:700;margin-bottom:0.5rem;}
+        .job-card .meta{font-size:0.8rem;color:rgba(255,255,255,0.4);margin-bottom:1rem;}
+        .job-card p{font-size:0.85rem;color:rgba(255,255,255,0.6);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:1rem;}
+        .btn-apply{padding:0.5rem 1rem;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.2);color:hsl(160,60%,60%);border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif;transition:all 0.2s;}
+        .btn-apply:hover{background:rgba(52,211,153,0.15);}
+        /* Empty state */
+        .empty{text-align:center;padding:3rem;color:rgba(255,255,255,0.3);}
+        .empty .icon{font-size:3rem;margin-bottom:1rem;}
+        @media(max-width:768px){.layout{grid-template-columns:1fr;}.sidebar{display:none;}.kpi-grid{grid-template-columns:1fr 1fr;}}
+    </style>
+</head>
+<body>
+<div class="layout">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="logo">🚀 RH-IA V3</div>
+        <div class="user-box">
+            <div class="name" id="sidebar-user-name">Chargement...</div>
+            <div class="role">🎯 Espace Candidat</div>
+        </div>
+        
+        <nav style="display: flex; flex-direction: column; gap: 5px;">
+            <button class="nav-link active" onclick="switchRubric('applications')" id="nav-applications">📁 Mes Candidatures</button>
+            <button class="nav-link" onclick="switchRubric('profile')" id="nav-profile">👤 Mon Profil</button>
+            <button class="nav-link" onclick="switchRubric('jobs')" id="nav-jobs">📋 Offres d'emploi</button>
+        </nav>
+
+        <button class="nav-link logout" onclick="logout()" style="margin-top: auto;">🚪 Déconnexion</button>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+        <div id="content-area">
+            <!-- Injecté par JS -->
+        </div>
+    </div>
+</div>
+
+<script src="/static/assets/js/api.js"></script>
+<script>
+    let currentUser = null;
+    let currentCandidate = null;
+
+    async function init() {
+        const token = apiClient.getToken();
+        if (!token) { window.location.href = '/static/auth/login.html'; return; }
+
+        try {
+            const profileRes = await apiClient.get('/candidate/profile');
+            currentUser = profileRes.user;
+            currentCandidate = profileRes.profile;
+
+            // Mise à jour Nom dans Sidebar
+            const nameDisplay = currentCandidate ? `${currentCandidate.first_name} ${currentCandidate.last_name||''}` : currentUser.email;
+            document.getElementById('sidebar-user-name').textContent = nameDisplay;
+
+            // Charger la rubrique par défaut (Mes Candidatures)
+            switchRubric('applications');
+        } catch (e) {
+            console.error("Erreur init:", e);
+            logout();
+        }
+    }
+
+    function switchRubric(rubric) {
+        // Update active state
+        document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+        const navEl = document.getElementById(`nav-${rubric}`);
+        if(navEl) navEl.classList.add('active');
+
+        const container = document.getElementById('content-area');
+        
+        if (rubric === 'profile') renderProfile(container);
+        if (rubric === 'applications') renderApplications(container);
+        if (rubric === 'jobs') renderJobs(container);
+    }
+
+    // --- RENDERS ---
+
+    async function renderProfile(container) {
+        container.innerHTML = `
+            <div class="page-header">
+                <h1>👤 Mon Profil Candidat</h1>
+                <p>Complétez votre profil pour maximiser vos chances de sélection par l'IA.</p>
+            </div>
+            
+            <div class="completion-box" style="margin-bottom: 2rem; background: rgba(52,211,153,0.05); border: 1px solid rgba(52,211,153,0.15); padding: 1.5rem; border-radius: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <span style="font-weight: 700; color: hsl(160,60%,60%);">Taux de complétion</span>
+                    <span id="comp-pct" style="font-weight: 800;">0%</span>
+                </div>
+                <div class="comp-bar" style="background: rgba(255,255,255,0.1); height: 8px; border-radius: 10px; overflow: hidden;">
+                    <div id="comp-fill" style="width: 0%; height: 100%; background: hsl(160,60%,50%); transition: width 0.5s;"></div>
+                </div>
+            </div>
+
+            <form id="profile-form">
+                <div class="section-card glass">
+                    <h2>📋 Informations Personnelles</h2>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                        <div class="form-group"><label>Prénom</label><input type="text" id="first_name" class="form-control"></div>
+                        <div class="form-group"><label>Nom</label><input type="text" id="last_name" class="form-control"></div>
+                        <div class="form-group"><label>Téléphone</label><input type="text" id="phone" class="form-control"></div>
+                        <div class="form-group"><label>Ville</label><input type="text" id="ville" class="form-control"></div>
+                    </div>
+                </div>
+
+                <div class="section-card glass">
+                    <h2>🎓 Parcours & Expérience</h2>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                        <div class="form-group">
+                            <label>Diplôme</label>
+                            <select id="diplome" class="form-control">
+                                <option value="Ingénieur">Ingénieur (Bac+5)</option>
+                                <option value="Master">Master (Bac+5)</option>
+                                <option value="Licence">Licence (Bac+3)</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label>Dernier Poste</label><input type="text" id="dernier_poste" class="form-control"></div>
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label>CV Actuel</label>
+                            <div id="cv-status" style="margin-top: 5px;"></div>
+                            <input type="file" id="new-cv" class="form-control" style="margin-top: 10px; padding: 10px;" accept=".pdf">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-card glass">
+                    <h2>💡 Motivations</h2>
+                    <textarea id="motivation" class="form-control" rows="4" placeholder="Pourquoi souhaitez-vous nous rejoindre ?"></textarea>
+                    <div style="margin-top: 2rem;">
+                        <button type="submit" class="btn-primary" style="width: 100%; height: 55px;">💾 Sauvegarder mon profil</button>
+                    </div>
+                </div>
+            </form>
+        `;
+
+        // Charger les données
+        const res = await apiClient.get('/candidate/profile');
+        if (res.profile) {
+            const p = res.profile;
+            ['first_name', 'last_name', 'phone', 'ville', 'diplome', 'dernier_poste', 'motivation'].forEach(f => {
+                const el = document.getElementById(f);
+                if (el && p[f]) el.value = p[f];
+            });
+            const pct = res.profile_completion || 0;
+            document.getElementById('comp-pct').textContent = pct + '%';
+            document.getElementById('comp-fill').style.width = pct + '%';
+
+            if (p.cv_url) {
+                document.getElementById('cv-status').innerHTML = `<a href="${p.cv_url}" target="_blank" style="color:hsl(160,60%,60%); text-decoration:none; font-size:0.9rem;">📄 Voir mon CV actuel</a>`;
+            }
+        }
+
+        // Event: Save
+        document.getElementById('profile-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const payload = {
+                first_name: document.getElementById('first_name').value,
+                last_name: document.getElementById('last_name').value,
+                phone: document.getElementById('phone').value,
+                ville: document.getElementById('ville').value,
+                diplome: document.getElementById('diplome').value,
+                dernier_poste: document.getElementById('dernier_poste').value,
+                motivation: document.getElementById('motivation').value,
+            };
+            try {
+                const saveRes = await apiClient.put('/candidate/profile', payload);
+                alert("✅ Profil mis à jour avec succès !");
+                switchRubric('profile'); // Refresh
+            } catch (err) { alert(err.message); }
+        };
+
+        // Event: CV Upload
+        document.getElementById('new-cv').onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const formData = new FormData();
+            formData.append('file', file);
+            try {
+                await apiClient.upload('/candidate/upload-cv', formData);
+                alert("✅ CV analysé par l'IA et profil mis à jour !");
+                switchRubric('profile');
+            } catch (err) { alert(err.message); }
+        };
+    }
+
+    async function renderApplications(container) {
+        container.innerHTML = `
+            <div class="page-header">
+                <h1>📁 Mes Candidatures</h1>
+                <p>Suivez l'état de vos postulations en temps réel.</p>
+            </div>
+            <div class="section-card glass" id="apps-list-container">Chargement...</div>
+        `;
+        const res = await apiClient.get('/candidate/applications');
+        const apps = (res.applications || []).filter(a => a.job_offers);
+        
+        if (!apps.length) {
+            document.getElementById('apps-list-container').innerHTML = "<p class='empty'>Vous n'avez pas encore postulé.</p>";
+            return;
+        }
+
+        const stageMap = {
+            'applied': 'En attente',
+            'chatbot_completed': 'Entretien IA fini',
+            'approved': '✅ Retenu',
+            'rejected': 'Non retenu'
+        };
+
+        document.getElementById('apps-list-container').innerHTML = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Poste</th>
+                        <th>Statut</th>
+                        <th>Date</th>
+                        <th style="text-align:right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${apps.map(a => `
+                        <tr>
+                            <td>
+                                <div style="font-weight:700;">${a.job_offers.title}</div>
+                                <div style="font-size:0.7rem; color:rgba(255,255,255,0.4);">Ref: ${a.job_offers.reference}</div>
+                            </td>
+                            <td><span class="badge badge-info">${stageMap[a.pipeline_stage] || a.pipeline_stage}</span></td>
+                            <td>${new Date(a.created_at).toLocaleDateString()}</td>
+                            <td style="text-align:right;">
+                                <button class="btn-apply" onclick="viewJobDetail('${a.job_offers.id}')">Relire l'annonce</button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    }
+
+    async function renderJobs(container) {
+        container.innerHTML = `
+            <div class="page-header">
+                <h1>📋 Offres d'emploi</h1>
+                <p>Découvrez les opportunités qui correspondent à votre profil.</p>
+            </div>
+            <div class="jobs-grid" id="full-jobs-grid">Chargement...</div>
+        `;
+        const res = await apiClient.get('/candidate/jobs');
+        const jobs = res.jobs || [];
+        document.getElementById('full-jobs-grid').innerHTML = jobs.map(j => `
+            <div class="job-card" style="padding: 2rem;">
+                <h3>${j.title}</h3>
+                <div class="meta">📍 ${j.site} • Réf: ${j.reference}</div>
+                <p style="margin-bottom:1.5rem; opacity: 0.7;">${j.description || ''}</p>
+                <button class="btn-primary" style="width:100%; height: 45px;" onclick="viewJobDetail('${j.id}')">Détails de l'offre</button>
+            </div>
+        `).join('');
+    }
+
+    function viewJobDetail(id) {
+        window.location.href = `job-detail.html?id=${id}`;
+    }
+
+    function logout() { apiClient.clearToken(); window.location.href = '/static/auth/login.html'; }
+
+    init();
+</script>
+</body>
+</html>

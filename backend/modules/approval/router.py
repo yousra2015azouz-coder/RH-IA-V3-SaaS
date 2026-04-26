@@ -137,12 +137,68 @@ async def sign_approval(approval_id: str, body: ApprovalSignRequest, user=Depend
 
     # 3. Avancer le workflow
     next_status = await get_next_approval_status(status)
+    now_iso = datetime.utcnow().isoformat()
+    user_name = f"{user.get('first_name', '')} {user.get('last_name', '')}".strip() or "Directeur"
+    role_short = status.split('_')[1] # hierarchique, fonctionnel, etc.
+    
+    # On récupère les métadonnées existantes (noms des signataires) dans groq_recommendation
+    import json
+    try:
+        sig_metadata = json.loads(approval.get("groq_recommendation", "{}"))
+        if not isinstance(sig_metadata, dict): sig_metadata = {"ai_rec": str(sig_metadata)}
+    except:
+        sig_metadata = {"ai_rec": approval.get("groq_recommendation", "")}
+    
+    # On ajoute le nouveau signataire
+    sig_metadata[f"{role_short}_name"] = user_name
+    
     update_fields = {
-        f"signed_{status.split('_')[1]}_at": datetime.utcnow().isoformat(),
-        "status": next_status or "approved"
+        f"signed_{role_short}_at": now_iso,
+        "status": next_status or "approved",
+        "groq_recommendation": json.dumps(sig_metadata)
     }
 
+    # Récupérer toutes les signatures déjà apposées pour le PDF
+    def get_sig_info(r_key):
+        r_short = r_key # hierarchic -> hierarchique (mapping possible)
+        # Mapping mapping interne vs colonnes DB
+        db_key = "hierarchique" if r_key == "hierarchic" else ("fonctionnel" if r_key == "functional" else r_key)
+        
+        is_signed = True if role_short == db_key or approval.get(f"signed_{db_key}_at") else False
+        return {
+            "signed": is_signed,
+            "date": datetime.fromisoformat(now_iso).strftime("%Y-%m-%d %H:%MZ") if role_short == db_key else (approval.get(f"signed_{db_key}_at")[:16].replace('T', ' ') + 'Z' if approval.get(f"signed_{db_key}_at") else ""),
+            "name": user_name if role_short == db_key else sig_metadata.get(f"{db_key}_name", "")
+        }
+
+    sigs = {
+        "hierarchic": get_sig_info("hierarchic"),
+        "functional": get_sig_info("functional"),
+        "hr": get_sig_info("hr"),
+        "dg": get_sig_info("dg")
+    }
+
+    # Mettre à jour la base de données
     supabase_admin.table("approval_requests").update(update_fields).eq("id", approval_id).execute()
+
+    # Régénérer le PDF 5.2 mis à jour
+    pdf_data = {
+        "nom_collaborateur": approval["nom_collaborateur"],
+        "job_title": approval.get("job_title", "Responsable Technique"),
+        "date_embauche": approval["date_embauche"],
+        "salaire_base": approval["salaire_base"],
+        "salaire_mensuel_net": approval["salaire_mensuel_net"],
+        "signatures": sigs
+    }
+    
+    try:
+        pdf_bytes = generate_approval_pdf(pdf_data)
+        doc_url = await document_service.upload_document(pdf_bytes, f"approbation_{approval['candidate_id']}.pdf", "application/pdf")
+        
+        # Mettre à jour l'URL du document
+        supabase_admin.table("documents").update({"file_url": doc_url}).eq("candidate_id", approval["candidate_id"]).eq("type", "approval_request").execute()
+    except Exception as e:
+        logger.error(f"Erreur mise à jour PDF Approbation : {e}")
 
     if next_status:
         await notify_next_approver(user["tenant_id"], approval_id, next_status)
@@ -153,7 +209,7 @@ async def sign_approval(approval_id: str, body: ApprovalSignRequest, user=Depend
             "approval_id": approval_id
         }, user["tenant_id"])
 
-    return {"status": "signed", "next_status": next_status or "approved"}
+    return {"status": "signed", "next_status": next_status or "approved", "pdf_url": doc_url if 'doc_url' in locals() else None}
 
 @router.get("/")
 async def list_approvals(request: Request, user=Depends(require_roles(DIRECTOR_ROLES))):

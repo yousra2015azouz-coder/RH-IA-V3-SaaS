@@ -60,3 +60,57 @@ async def init_employee_onboarding(employee_id: str, tenant_id: str):
         }).execute()
     
     logger.info(f"Onboarding initialisé pour l'employé {employee_id}")
+
+async def provision_employee_access(employee_id: str, tenant_id: str):
+    """Génère un compte SaaS pour le nouvel employé et envoie les accès."""
+    import secrets
+    import string
+    from backend.modules.notifications.service import send_welcome_email
+
+    # 1. Récupérer les infos de l'employé
+    res = supabase_admin.table("employees").select("*, tenants(name)").eq("id", employee_id).execute()
+    data = get_data(res) or []
+    if not data:
+        logger.error(f"Employé {employee_id} non trouvé pour provisionning")
+        return
+    emp = data[0]
+    
+    # 2. Générer mot de passe temporaire
+    alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+    temp_password = ''.join(secrets.choice(alphabet) for i in range(12))
+    
+    try:
+        # 3. Créer le compte Auth via Admin API
+        auth_res = supabase_admin.auth.admin.create_user({
+            "email": emp["email"],
+            "password": temp_password,
+            "email_confirm": True
+        })
+        user_id = str(auth_res.user.id)
+        
+        # 4. Créer le profil dans la table users
+        supabase_admin.table("users").insert({
+            "id": user_id,
+            "tenant_id": tenant_id,
+            "email": emp["email"],
+            "role": "employe",
+            "first_name": emp["full_name"].split(' ')[0],
+            "last_name": ' '.join(emp["full_name"].split(' ')[1:]),
+            "is_active": True
+        }).execute()
+        
+        # 5. Mettre à jour la tâche d'onboarding IT
+        supabase_admin.table("onboarding_tasks").update({
+            "status": "COMPLETED"
+        }).eq("employee_id", employee_id).ilike("title", "%Accès%").execute()
+        
+        # 6. Envoyer l'email
+        tenant_name = emp.get("tenants", {}).get("name", "Votre Entreprise")
+        await send_welcome_email(emp["email"], temp_password, emp["full_name"], tenant_name)
+        
+        logger.info(f"Accès provisionnés pour {emp['full_name']} ({emp['email']})")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Erreur provisionning accès pour {employee_id}: {e}")
+        return False

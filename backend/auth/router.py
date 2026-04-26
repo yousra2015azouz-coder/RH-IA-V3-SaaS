@@ -17,7 +17,13 @@ logger = logging.getLogger(__name__)
 async def login(body: LoginRequest, request: Request):
     """Login via Supabase Auth → retourne JWT + profil utilisateur."""
     try:
-        response = supabase_admin.auth.sign_in_with_password({
+        import os
+        from supabase import create_client
+        url = os.environ.get("SUPABASE_URL", "")
+        service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_SERVICE_KEY", "")
+        temp_client = create_client(url, service_key)
+        
+        response = temp_client.auth.sign_in_with_password({
             "email": body.email,
             "password": body.password
         })
@@ -52,10 +58,11 @@ async def signup(body: SignupRequest, request: Request):
             raise HTTPException(404, f"Entreprise '{body.tenant_slug}' non trouvée")
         tenant = tenants[0]
 
-        # Créer compte Supabase Auth
-        auth_resp = supabase_admin.auth.sign_up({
+        # Créer compte Supabase Auth (via admin API pour ne pas muter la session serveur)
+        auth_resp = supabase_admin.auth.admin.create_user({
             "email": body.email,
-            "password": body.password
+            "password": body.password,
+            "email_confirm": True
         })
         user_id = str(auth_resp.user.id)
 
@@ -109,10 +116,11 @@ async def setup_superadmin(body: SignupRequest, secret_key: str):
         
         tenant_id = tenant_res.data[0]["id"]
 
-        # Créer Auth
-        auth_resp = supabase_admin.auth.sign_up({
+        # Créer Auth (via admin API)
+        auth_resp = supabase_admin.auth.admin.create_user({
             "email": body.email,
-            "password": body.password
+            "password": body.password,
+            "email_confirm": True
         })
         user_id = str(auth_resp.user.id)
 
