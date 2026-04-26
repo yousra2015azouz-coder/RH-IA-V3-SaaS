@@ -9,16 +9,49 @@
         .hero { height:400px; background:linear-gradient(rgba(15,23,42,0.7),rgba(15,23,42,0.95)),url('/static/assets/images/hero.png'); background-size:cover; background-position:center; display:flex; align-items:center; justify-content:center; text-align:center; margin-bottom:4rem; border-bottom:2px solid var(--secondary); }
         .search-container { max-width:1000px; margin:-60px auto 4rem auto; padding:2rem; display:grid; grid-template-columns:2fr 1fr 1fr auto; gap:1rem; position:relative; z-index:10; }
         .container { max-width:1100px; margin:0 auto; padding:0 2rem; }
-        .portal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem; }
+        .portal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:2.5rem; }
+        .portal-header h2 { font-size: 1.8rem; font-weight: 700; color: var(--text-main); }
+        
+        /* Premium Job Cards */
+        #jobs-list { display: flex; flex-direction: column; gap: 1.2rem; }
+        .job-item { 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 1.8rem 2.2rem; border-radius: 20px; 
+            background: rgba(255, 255, 255, 0.03); 
+            backdrop-filter: blur(20px); 
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative; overflow: hidden;
+        }
+        .job-item::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%;
+            background: var(--secondary); opacity: 0; transition: 0.3s;
+        }
+        .job-item:hover { 
+            transform: translateX(10px); 
+            background: rgba(255, 255, 255, 0.06); 
+            border-color: rgba(16, 185, 129, 0.3);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        .job-item:hover::before { opacity: 1; }
+
+        .job-info h3 { font-size: 1.3rem; margin-bottom: 0.8rem; color: var(--secondary); letter-spacing: -0.02em; }
+        .job-meta { display: flex; gap: 1.5rem; font-size: 0.85rem; color: var(--text-muted); align-items: center; flex-wrap: wrap; }
+        .meta-item { display: flex; align-items: center; gap: 0.5rem; }
+        .meta-item i { font-size: 1rem; color: rgba(255,255,255,0.3); }
+
+        .job-actions { display: flex; align-items: center; gap: 1.2rem; }
+        .ref-badge { font-size: 0.75rem; color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 6px; }
+
         /* Nav Bar */
-        .top-nav { position:fixed; top:0; left:0; right:0; z-index:100; background:rgba(10,15,30,0.92); backdrop-filter:blur(12px); border-bottom:1px solid rgba(255,255,255,0.06); padding:0.9rem 2rem; display:flex; justify-content:space-between; align-items:center; }
-        .top-nav .logo { font-size:1.2rem; font-weight:800; color:hsl(160,60%,60%); }
-        .top-nav .nav-actions { display:flex; gap:0.8rem; align-items:center; }
-        .btn-login { padding:0.5rem 1.2rem; border:1px solid rgba(255,255,255,0.15); border-radius:10px; color:rgba(255,255,255,0.7); background:transparent; cursor:pointer; font-family:inherit; font-size:0.9rem; transition:all 0.2s; text-decoration:none; }
-        .btn-login:hover { background:rgba(255,255,255,0.06); color:white; }
-        .btn-register { padding:0.5rem 1.2rem; background:linear-gradient(135deg,hsl(160,60%,40%),hsl(160,60%,30%)); border:none; border-radius:10px; color:white; cursor:pointer; font-family:inherit; font-size:0.9rem; font-weight:600; transition:all 0.2s; text-decoration:none; }
-        .btn-register:hover { transform:translateY(-1px); box-shadow:0 4px 15px rgba(52,211,153,0.3); }
-        body { padding-top:60px; }
+        .top-nav { position:fixed; top:0; left:0; right:0; z-index:100; background:rgba(10,15,30,0.85); backdrop-filter:blur(15px); border-bottom:1px solid rgba(255,255,255,0.08); padding:0.9rem 2.5rem; display:flex; justify-content:space-between; align-items:center; }
+        .top-nav .logo { font-size:1.4rem; font-weight:800; color:var(--secondary); letter-spacing: -1px; }
+        .top-nav .nav-actions { display:flex; gap:1rem; align-items:center; }
+        .btn-login { padding:0.6rem 1.4rem; border:1px solid rgba(255,255,255,0.15); border-radius:12px; color:rgba(255,255,255,0.8); background:transparent; cursor:pointer; font-family:inherit; font-size:0.9rem; font-weight: 500; transition:all 0.3s; text-decoration:none; }
+        .btn-login:hover { background:rgba(255,255,255,0.1); color:white; border-color: white; }
+        .btn-register { padding:0.6rem 1.4rem; background: var(--secondary); border:none; border-radius:12px; color:var(--bg-main); cursor:pointer; font-family:inherit; font-size:0.9rem; font-weight:700; transition:all 0.3s; text-decoration:none; display: flex; align-items: center; gap: 8px; }
+        .btn-register:hover { transform:translateY(-2px); box-shadow:0 8px 20px rgba(16, 185, 129, 0.4); filter: brightness(1.1); }
+        body { padding-top:60px; background-color: #0a0f1e; }
     </style>
 </head>
 <body>
@@ -97,22 +130,19 @@
                 }
 
                 list.innerHTML = data.jobs.map(j => `
-                    <div class="glass job-item">
+                    <div class="job-item animate-fade">
                         <div class="job-info">
-                            <h3 style="color: var(--secondary);">${j.title}</h3>
+                            <h3>${j.title}</h3>
                             <div class="job-meta">
-                                <span>📍 ${j.site}</span>
-                                <span>📁 ${j.entity_organisationnelle}</span>
-                                <span>📅 Publiée le ${new Date(j.created_at).toLocaleDateString()}</span>
-                                <span class="badge badge-success">CDI</span>
+                                <div class="meta-item"><span>📍</span> ${j.site}</div>
+                                <div class="meta-item"><span>📁</span> ${j.entity_organisationnelle || 'Direction Technique'}</div>
+                                <div class="meta-item"><span>📅</span> ${new Date(j.created_at).toLocaleDateString()}</div>
+                                <span class="badge" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); padding: 4px 12px;">CDI</span>
                             </div>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 1rem;">
-                            <div style="text-align: right;">
-                                <p style="font-size: 0.8rem; color: var(--text-muted);">Réf: ${j.reference || 'N/A'}</p>
-                            </div>
-                            <a href="job-detail.html?job_id=${j.id}" class="btn btn-outline" style="white-space:nowrap;">Voir l'offre</a>
-                            <button onclick="handleApply('${j.id}', '${tenantSlug}')" class="btn btn-primary" style="white-space:nowrap;">Postuler →</button>
+                        <div class="job-actions">
+                            <a href="job-detail.html?job_id=${j.id}" class="btn-login" style="padding: 0.6rem 1.2rem;">Détails</a>
+                            <button onclick="handleApply('${j.id}', '${tenantSlug}')" class="btn btn-primary" style="padding: 0.7rem 1.5rem; font-weight:700; border-radius: 12px;">Postuler →</button>
                         </div>
                     </div>
                 `).join('');
