@@ -49,11 +49,19 @@ class DocumentService:
         """Génère le PDF d'approbation et l'upload sur Supabase Storage."""
         from backend.utils.pdf_generator import generate_approval_pdf
         try:
-            res = supabase_admin.table("approval_requests").select("*, job_offers(*)").eq("id", approval_id).execute()
+            res = supabase_admin.table("approval_requests").select("*, job_offers(*), candidates(*)").eq("id", approval_id).execute()
             data_list = get_data(res) or []
             if not data_list: return None
             
             approval_data = data_list[0]
+            # Mapper les données candidat à la racine pour plus de facilité dans le template
+            if approval_data.get("candidates"):
+                cand = approval_data["candidates"]
+                approval_data["date_naissance"] = cand.get("birth_date") or cand.get("date_naissance")
+                approval_data["email"] = cand.get("email")
+                if not approval_data.get("situation_familiale"):
+                    approval_data["situation_familiale"] = cand.get("family_status")
+            
             pdf_bytes = generate_approval_pdf(approval_data)
 
             url = await self.upload_document(pdf_bytes, f"approbation_{approval_id}.pdf")
@@ -71,6 +79,8 @@ class DocumentService:
             
             return url
         except Exception as e:
+            import traceback
+            logger.error(f"Erreur PDF Approval: {str(e)}\n{traceback.format_exc()}")
             await log_error(module="documents", message=str(e), tenant_id=tenant_id)
             return None
 

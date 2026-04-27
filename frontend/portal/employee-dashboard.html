@@ -11,13 +11,13 @@
         .layout{display:grid;grid-template-columns:260px 1fr;min-height:100vh;}
         .sidebar{position:relative;background:rgba(255,255,255,0.02);border-right:1px solid rgba(255,255,255,0.06);padding:2rem 1.5rem;display:flex;flex-direction:column;gap:0.5rem;height:auto;width:auto;}
         .logo{font-size:1.3rem;font-weight:800;color:hsl(160,60%,60%);margin-bottom:1.5rem;}
-        .user-box{background:linear-gradient(135deg,rgba(52,211,153,0.08),rgba(52,211,153,0.03));border:1px solid rgba(52,211,153,0.15);border-radius:14px;padding:1.2rem;margin-bottom:1.5rem;}
-        .user-box .avatar{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,hsl(160,60%,35%),hsl(160,60%,25%));display:flex;align-items:center;justify-content:center;font-size:1.2rem;margin-bottom:0.8rem;}
+        .user-box{background:linear-gradient(135deg,rgba(var(--secondary-rgb, 52,211,153),0.08),rgba(var(--secondary-rgb, 52,211,153),0.03));border:1px solid rgba(var(--secondary-rgb, 52,211,153),0.15);border-radius:14px;padding:1.2rem;margin-bottom:1.5rem;}
+        .user-box .avatar{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--secondary),var(--primary));display:flex;align-items:center;justify-content:center;font-size:1.2rem;margin-bottom:0.8rem;}
         .user-box .name{font-weight:700;font-size:1rem;}
         .user-box .role-badge{display:inline-block;background:rgba(52,211,153,0.1);color:hsl(160,60%,60%);font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:6px;margin-top:4px;text-transform:uppercase;letter-spacing:0.05em;}
         .nav-link{display:flex;align-items:center;gap:0.8rem;padding:0.75rem 1rem;border-radius:12px;color:rgba(255,255,255,0.6);text-decoration:none;font-size:0.95rem;font-weight:500;transition:all 0.2s;border:none;background:none;cursor:pointer;width:100%;text-align:left;font-family:'Outfit',sans-serif;}
         .nav-link:hover{background:rgba(255,255,255,0.05);color:white;}
-        .nav-link.active{background:rgba(52,211,153,0.1);color:hsl(160,60%,65%);border:1px solid rgba(52,211,153,0.15);}
+        .nav-link.active{background:rgba(var(--secondary-rgb, 52,211,153),0.1);color:var(--secondary);border:1px solid rgba(var(--secondary-rgb, 52,211,153),0.15);}
         .nav-link.logout{color:rgba(239,68,68,0.7);margin-top:auto;}
         .main{padding:2.5rem;overflow-y:auto;}
         /* Welcome Banner */
@@ -72,7 +72,10 @@
 <div class="layout">
     <!-- SIDEBAR -->
     <div class="sidebar">
-        <div class="logo">🚀 RH-IA V3</div>
+        <div class="logo" style="display: flex; align-items: center; gap: 10px; margin-bottom: 2rem;">
+            <img src="" class="app-logo" style="max-height: 35px; display: none;">
+            <span class="app-name" style="font-size: 1.1rem; font-weight: 800;">RH-IA V3</span>
+        </div>
         <div class="user-box">
             <div class="avatar">👔</div>
             <div class="name" id="emp-name">Employé</div>
@@ -147,6 +150,7 @@
 </div>
 
 <script src="/static/assets/js/api.js"></script>
+<script src="/static/assets/js/branding.js"></script>
 <script>
     const token = localStorage.getItem('access_token');
     const user = JSON.parse(localStorage.getItem('user') || '{}');

@@ -50,8 +50,19 @@ const authService = {
     },
 
     getCurrentUser() {
-        const user = localStorage.getItem("rh_user");
-        return user ? JSON.parse(user) : null;
+        try {
+            const userStr = localStorage.getItem("rh_user") || localStorage.getItem("user");
+            if (!userStr || userStr === "undefined" || userStr === "null") {
+                return null;
+            }
+            return JSON.parse(userStr);
+        } catch (e) {
+            console.error("AuthService: Erreur de parsing de l'utilisateur:", e);
+            // Nettoyer les données corrompues
+            localStorage.removeItem("rh_user");
+            localStorage.removeItem("user");
+            return null;
+        }
     },
 
     checkAuth() {

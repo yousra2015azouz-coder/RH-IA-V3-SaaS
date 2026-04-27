@@ -63,17 +63,27 @@ async def auth_middleware(request: Request, call_next):
         (request.url.path.startswith("/api/v1/jobs") and request.url.path.endswith("/apply"))
     )
 
-    if not is_public:
-        auth_header = request.headers.get("Authorization")
-        if not auth_header or not auth_header.startswith("Bearer "):
-            return JSONResponse(status_code=401, content={"detail": "Token manquant"})
-        
+    # DEBUG LOGS RADICAUX
+    print(f"--- REQUÊTE: {request.method} {request.url.path} ---")
+    auth_header = request.headers.get("Authorization")
+    print(f"Auth Header présent: {bool(auth_header)}")
+
+    if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
         try:
             user = await resolve_user_from_token(token)
             request.state.user = user
+            print(f"Utilisateur identifié: {user.get('email')} ({user.get('role')})")
         except Exception as e:
-            return JSONResponse(status_code=401, content={"detail": str(e)})
+            print(f"ÉCHEC IDENTIFICATION TOKEN: {e}")
+            if not is_public:
+                return JSONResponse(status_code=401, content={"detail": f"Session invalide: {str(e)}"})
+
+    if not is_public and not getattr(request.state, "user", None):
+        print("BLOQUAGE: Route privée et utilisateur non identifié")
+        return JSONResponse(status_code=401, content={"detail": "Authentification requise"})
+    
+    print(f"PASSAGE: {request.url.path} autorisé (Public: {is_public})")
     
     response = await call_next(request)
     return response

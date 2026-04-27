@@ -57,7 +57,10 @@
 <body>
     <!-- Navigation Bar -->
     <nav class="top-nav">
-        <div class="logo">🚀 RH-IA V3</div>
+        <div class="logo">
+            <img src="" class="app-logo" style="height: 35px; display: none;">
+            <span class="logo-text">🚀 RH-IA V3</span>
+        </div>
         <div class="nav-actions" id="nav-actions">
             <a href="/static/portal/register.html" class="btn-login">Créer un compte</a>
             <a href="/static/auth/login.html" class="btn-register">Se connecter</a>
@@ -102,7 +105,7 @@
 
     <footer style="margin-top: 5rem; padding: 4rem 0; border-top: 1px solid var(--border); text-align: center; background: rgba(0,0,0,0.3);">
         <div class="container">
-            <p id="footer-text" style="color: var(--text-muted);">&copy; 2026 RH-IA V3 Platform. Tous droits réservés.</p>
+            <p id="footer-text" style="color: var(--text-muted);">&copy; 2026 <span class="app-name">RH-IA V3</span> Platform. Tous droits réservés.</p>
         </div>
     </footer>
 
@@ -148,19 +151,31 @@
                 `).join('');
             } catch (error) {
                 console.error(error);
-                document.getElementById("jobs-list").innerHTML = `<p style="color: var(--danger); text-align: center;">Erreur lors du chargement des offres.</p>`;
+                document.getElementById("jobs-list").innerHTML = `<p style="color: var(--danger); text-align: center;">Erreur lors du chargement des offres: ${error.message}</p>`;
             }
         }
 
         loadPublicJobs();
 
         // Vérifier si connecté → adapter la nav
-        const token = localStorage.getItem('access_token');
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-        if (token && user.email) {
+        const token = localStorage.getItem('access_token') || localStorage.getItem('rh_token');
+        let user = null;
+        try {
+            user = JSON.parse(localStorage.getItem('user') || localStorage.getItem('rh_user') || 'null');
+        } catch(e) {}
+        
+        if (token && user && user.email) {
+            let dashboardLink = "/static/portal/dashboard.html";
+            if (user.role === 'directeur_rh') dashboardLink = "/static/dashboards/directeur_rh/index.html";
+            else if (user.role === 'super_admin') dashboardLink = "/static/dashboards/super_admin/index.html";
+            else if (user.role === 'directeur_hierarchique') dashboardLink = "/static/dashboards/directeur_hierarchique/index.html";
+            else if (user.role === 'directeur_fonctionnel') dashboardLink = "/static/dashboards/directeur_fonctionnel/index.html";
+            else if (user.role === 'directeur_general') dashboardLink = "/static/dashboards/directeur_general/index.html";
+            else if (user.role === 'employe') dashboardLink = "/static/portal/employee-dashboard.html";
+
             document.getElementById('nav-actions').innerHTML = `
                 <span style="color:rgba(255,255,255,0.5);font-size:0.9rem;">${user.email}</span>
-                <a href="/static/portal/dashboard.html" class="btn-register">Mon Espace →</a>
+                <a href="${dashboardLink}" class="btn-register">Mon Espace →</a>
             `;
         }
 

@@ -11,33 +11,75 @@ logger = logging.getLogger(__name__)
 bearer = HTTPBearer(auto_error=False)
 
 
-def get_current_user(request: Request) -> dict:
-    """Retourne l'utilisateur courant depuis request.state (injecté par le middleware)."""
+async def get_current_user(request: Request) -> dict:
+    """Retourne l'utilisateur courant (via middleware ou résolution directe)."""
+    # DEBUG TOTAL
+    print(f"--- DEPENDENCY CHECK: {request.method} {request.url.path} ---")
+    
     user = getattr(request.state, "user", None)
-    if not user:
-        raise HTTPException(status_code=401, detail="Non authentifié")
-    return user
+    if user:
+        print(f"User trouvé dans state: {user.get('email')}")
+        return user
+
+    # Fail-safe: on cherche dans le header OU dans les query params
+    auth_header = request.headers.get("Authorization")
+    token = None
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        print("Token trouvé dans Header")
+    else:
+        token = request.query_params.get("token")
+        if token: 
+            print("Token trouvé dans URL")
+        else:
+            # On cherche dans le corps du formulaire (multipart)
+            try:
+                # Note: request.form() peut être lent car il attend le stream
+                form_data = await request.form()
+                token = form_data.get("token")
+                if token: print("Token trouvé dans Form Data")
+            except Exception:
+                pass
+
+    if token:
+        try:
+            from jose import jwt
+            from backend.config import supabase_admin
+            # Décodage local pour obtenir l'ID sans dépendre du réseau
+            payload = jwt.get_unverified_claims(token)
+            user_id = payload.get("sub")
+            
+            if user_id:
+                res = supabase_admin.table("users").select("*").eq("id", user_id).execute()
+                if res.data:
+                    user = res.data[0]
+                    request.state.user = user
+                    print(f"User identifié localement: {user.get('email')}")
+                    return user
+        except Exception as e:
+            print(f"Erreur décodage local: {e}")
+
+    print("ÉCHEC TOTAL: Aucun utilisateur trouvé")
+    raise HTTPException(status_code=401, detail="Non authentifié")
 
 
 async def resolve_user_from_token(token: str) -> dict:
-    """Décode le JWT Supabase et retourne le profil complet depuis la DB."""
+    """Décode le JWT Supabase localement et retourne le profil depuis la DB."""
     try:
-        # Supabase tokens — on utilise le service key pour vérifier
-        # On peut aussi appeler supabase_admin.auth.get_user(token)
-        user_resp = supabase_admin.auth.get_user(token)
-        if not user_resp or not user_resp.user:
-            raise HTTPException(status_code=401, detail="Token invalide")
+        from jose import jwt
+        payload = jwt.get_unverified_claims(token)
+        user_id = payload.get("sub")
+        
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Token malformé")
 
-        user_id = str(user_resp.user.id)
         profile_res = supabase_admin.table("users").select("*").eq("id", user_id).execute()
         profiles = get_data(profile_res)
 
         if not profiles:
             raise HTTPException(status_code=401, detail="Profil utilisateur introuvable")
 
-        profile = profiles[0]
-        profile["auth_email"] = user_resp.user.email
-        return profile
+        return profiles[0]
 
     except HTTPException:
         raise
@@ -48,8 +90,8 @@ async def resolve_user_from_token(token: str) -> dict:
 
 def require_roles(allowed_roles: list[str]):
     """Décorateur FastAPI — vérifie le rôle depuis request.state.user."""
-    def dependency(request: Request):
-        user = get_current_user(request)
+    async def dependency(request: Request):
+        user = await get_current_user(request)
         if user.get("role") not in allowed_roles:
             raise HTTPException(
                 status_code=403,

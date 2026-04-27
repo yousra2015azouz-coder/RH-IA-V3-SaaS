@@ -1,6 +1,7 @@
 """
 modules/approval/router.py — Endpoints approbation workflow
 """
+import os
 from fastapi import APIRouter, Request, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
@@ -74,31 +75,13 @@ async def create_approval_request(body: ApprovalRequestCreate, user=Depends(requ
 
     data = get_data(req_res)
     if data:
-        # 4. Générer PDF 5.2
-        pdf_data = {
-            "nom_collaborateur": body.nom_collaborateur,
-            "job_title": body.job_offer_id, # Idéalement récupérer le titre
-            "date_embauche": body.date_embauche,
-            "salaire_base": body.salaire_base,
-            "primes": body.primes,
-            "avantages": body.avantages,
-            "salaire_mensuel_net": salary_data["salaire_net"]
-        }
-        pdf_bytes = generate_approval_pdf(pdf_data)
-        doc_url = await document_service.upload_document(pdf_bytes, f"approbation_{body.candidate_id}.pdf", "application/pdf")
+        approval_id = data[0]["id"]
+        # 4. Générer PDF 5.2 via le service (qui récupère candidates(*) et job_offers(*))
+        doc_url = await document_service.generate_and_store_approval_pdf(approval_id, user["tenant_id"])
         
-        # 5. Créer entrée Document
-        supabase_admin.table("documents").insert({
-            "tenant_id": user["tenant_id"],
-            "candidate_id": body.candidate_id,
-            "type": "approval_request",
-            "file_url": doc_url,
-            "generated_by": user["id"]
-        }).execute()
-
         # Notifier le premier approbateur
-        await notify_next_approver(user["tenant_id"], data[0]["id"], "pending_hierarchique")
-        return {"status": "created", "approval": data[0]}
+        await notify_next_approver(user["tenant_id"], approval_id, "pending_hierarchique")
+        return {"status": "created", "approval": data[0], "pdf_url": doc_url}
     
     raise HTTPException(500, "Erreur création demande")
 
@@ -217,11 +200,62 @@ async def list_approvals(request: Request, user=Depends(require_roles(DIRECTOR_R
     res = supabase_admin.table("approval_requests").select("*, candidates(first_name, last_name), job_offers(title)").eq("tenant_id", user["tenant_id"]).order("created_at", desc=True).execute()
     return {"approvals": get_data(res) or []}
 
-@router.get("/{approval_id}")
-async def get_approval(approval_id: str, user=Depends(require_roles(DIRECTOR_ROLES))):
-    """Détail d'une demande d'approbation."""
-    res = supabase_admin.table("approval_requests").select("*, candidates(*), job_offers(*)").eq("id", approval_id).eq("tenant_id", user["tenant_id"]).execute()
-    data = get_data(res) or []
-    if not data:
+@router.get("/{approval_id}/pdf")
+async def get_approval_pdf_dynamic(approval_id: str, user=Depends(require_roles(DIRECTOR_ROLES))):
+    """Génère et renvoie le PDF d'approbation à la volée avec les données fraîches."""
+    res = supabase_admin.table("approval_requests").select("*, job_offers(*), candidates(*)").eq("id", approval_id).eq("tenant_id", user["tenant_id"]).execute()
+    data_list = get_data(res) or []
+    if not data_list:
         raise HTTPException(404, "Demande non trouvée")
-    return {"approval": data[0]}
+    
+    approval_data = data_list[0]
+    
+    # Enrichissement des données (même logique que le service)
+    if approval_data.get("candidates"):
+        cand = approval_data["candidates"]
+        approval_data["date_naissance"] = cand.get("birth_date") or cand.get("date_naissance")
+        approval_data["email"] = cand.get("email")
+        if not approval_data.get("situation_familiale"):
+            approval_data["situation_familiale"] = cand.get("family_status")
+
+    # Reconstruire les signatures depuis les timestamps
+    def get_sig_info(role_db):
+        role_short = role_db # hierarchique, fonctionnel, rh, dg
+        is_signed = bool(approval_data.get(f"signed_{role_short}_at"))
+        
+        import json
+        try:
+            meta = json.loads(approval_data.get("groq_recommendation", "{}"))
+        except:
+            meta = {}
+            
+        return {
+            "signed": is_signed,
+            "date": approval_data.get(f"signed_{role_short}_at")[:16].replace('T', ' ') + 'Z' if is_signed else "",
+            "name": meta.get(f"{role_short}_name") or ("Approbateur" if is_signed else "")
+        }
+
+    approval_data["signatures"] = {
+        "hierarchic": get_sig_info("hierarchique"),
+        "functional": get_sig_info("fonctionnel"),
+        "hr": get_sig_info("rh"),
+        "dg": get_sig_info("dg")
+    }
+
+    # Récupérer l'URL du logo du tenant
+    tenant_res = supabase_admin.table("tenants").select("logo_url").eq("id", user["tenant_id"]).execute()
+    tenant_data = get_data(tenant_res)
+    if tenant_data:
+        # Si logo local (static), s'assurer du chemin complet
+        logo_url = tenant_data[0].get("logo_url")
+        if logo_url and not logo_url.startswith("http"):
+            approval_data["logo_url"] = f"backend/static/logos/{os.path.basename(logo_url)}"
+        else:
+            approval_data["logo_url"] = logo_url
+
+    from fastapi.responses import StreamingResponse
+    import io
+    pdf_bytes = generate_approval_pdf(approval_data)
+    return StreamingResponse(io.BytesIO(pdf_bytes), media_type="application/pdf", headers={
+        "Content-Disposition": f"inline; filename=approbation_{approval_id}.pdf"
+    })

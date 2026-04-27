@@ -10,7 +10,10 @@
     <div class="app-container">
         <!-- Sidebar -->
         <div class="sidebar glass">
-            <div class="logo" style="font-size: 1.5rem; font-weight: 800; margin-bottom: 3rem; color: var(--primary-light);">RH-IA V3</div>
+            <div class="logo" style="display: flex; align-items: center; gap: 12px; margin-bottom: 3rem;">
+                <img src="" class="app-logo" style="max-height: 35px; display: none;">
+                <span class="app-name" style="font-size: 1.2rem; font-weight: 800; color: var(--primary-light);">RH-IA V3</span>
+            </div>
             <nav style="display: flex; flex-direction: column; gap: 0.5rem;">
                 <a href="index.html" class="btn btn-outline" style="width: 100%; justify-content: flex-start;">
                     <span>📊</span> Tableau de bord
@@ -94,6 +97,7 @@
 
     <script src="/static/assets/js/api.js"></script>
     <script src="/static/assets/js/auth.js"></script>
+    <script src="/static/assets/js/branding.js"></script>
     <script>
         async function loadApprovals() {
             try {

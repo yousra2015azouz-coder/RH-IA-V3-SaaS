@@ -84,7 +84,10 @@
 
     <div class="login-side">
         <div class="login-box glass animate-fade" style="animation-delay: 0.2s;">
-            <div class="brand-logo">RH-IA <span style="color: var(--text-main);">V3</span></div>
+            <div class="brand-logo" style="display: flex; align-items: center; justify-content: center; gap: 15px;">
+                <img src="" class="app-logo" style="height: 40px; display: none;">
+                <span class="app-name">RH-IA <span style="color: var(--text-main);">V3</span></span>
+            </div>
             <h2>Bon retour !</h2>
             <p class="subtitle">Veuillez vous identifier pour accéder au cockpit.</p>
             
@@ -113,6 +116,7 @@
 
     <script src="/static/assets/js/api.js"></script>
     <script src="/static/assets/js/auth.js"></script>
+    <script src="/static/assets/js/branding.js"></script>
     <script>
         document.getElementById("login-form").addEventListener("submit", async (e) => {
             e.preventDefault();

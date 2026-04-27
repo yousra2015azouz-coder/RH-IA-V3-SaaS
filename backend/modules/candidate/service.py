@@ -30,6 +30,7 @@ async def parse_cv_for_profile(cv_text: str) -> dict:
       "etablissement": "string ou null",
       "dernier_poste": "string ou null",
       "annees_experience": "string (ex: 0-1, 1-3, 3-5, 5-10, 10+) ou null",
+      "date_naissance": "string (format YYYY-MM-DD) ou null",
       "competences": ["liste", "de", "compétences"],
       "resume": "résumé du profil en 2-3 phrases"
     }
@@ -51,25 +52,34 @@ def calculate_profile_completion(candidate: dict) -> int:
     Chaque champ rempli contribue au score final.
     """
     fields = {
-        "first_name": 10,
-        "last_name": 10,
-        "email": 10,
+        "first_name": 5,
+        "last_name": 5,
+        "email": 5,
         "phone": 5,
         "ville": 5,
-        "diplome": 10,
+        "date_naissance": 5,
+        "linkedin_url": 5,
+        "diplome": 5,
         "etablissement": 5,
-        "dernier_poste": 10,
-        "annees_experience": 10,
+        "dernier_poste": 5,
+        "annees_experience": 5,
+        "competences": 10,
+        "resume": 10,
         "pretentions_salariales": 10,
         "disponibilite": 10,
-        "motivation": 10,
+        "motivation": 5,
         "cv_url": 5,
     }
-    total_weight = sum(fields.values())
+    total_weight = 100 # Somme des poids ci-dessus
     score = 0
     for field, weight in fields.items():
         val = candidate.get(field)
-        if val is not None and val != "" and val != 0:
+        # Fallback pour les noms de colonnes Supabase
+        if field == "competences" and not val: val = candidate.get("ai_skills")
+        if field == "resume" and not val: val = candidate.get("ai_summary")
+        if field == "date_naissance" and not val: val = candidate.get("birth_date")
+
+        if val is not None and val != "" and val != 0 and val != []:
             score += weight
 
     return min(100, round((score / total_weight) * 100))
@@ -147,16 +157,16 @@ async def update_candidate_profile(user_id: str, tenant_id: str, profile_data: d
     Calcule automatiquement le taux de complétion.
     """
     # Chercher si un profil candidat existe déjà pour cet user
-    existing_res = supabase_admin.table("candidates").select("id").eq("user_id", user_id).limit(1).execute()
+    existing_res = supabase_admin.table("candidates").select("*").eq("user_id", user_id).limit(1).execute()
     existing = existing_res.data or []
 
-    # Calculer le taux de complétion
-    completion = calculate_profile_completion({**profile_data, "user_id": user_id})
-    profile_data["profile_completion"] = completion
-
     if existing:
-        # Mise à jour
+        # Mise à jour : fusionner les données existantes avec les nouvelles pour le calcul de complétion
         candidate_id = existing[0]["id"]
+        full_data = {**existing[0], **profile_data}
+        completion = calculate_profile_completion(full_data)
+        profile_data["profile_completion"] = completion
+        
         supabase_admin.table("candidates").update(profile_data).eq("id", candidate_id).execute()
         return {"candidate_id": candidate_id, "profile_completion": completion}
     else:

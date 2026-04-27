@@ -11,18 +11,18 @@
         .layout{display:grid;grid-template-columns:260px 1fr;min-height:100vh;}
         /* Sidebar */
         .sidebar{position:relative;background:rgba(255,255,255,0.02);border-right:1px solid rgba(255,255,255,0.06);padding:2rem 1.5rem;display:flex;flex-direction:column;gap:0.5rem;height:auto;width:auto;}
-        .logo{font-size:1.3rem;font-weight:800;color:hsl(160,60%,60%);margin-bottom:2rem;}
+        .logo{font-size:1.3rem;font-weight:800;color:var(--secondary);margin-bottom:2rem;}
         .nav-link{display:flex;align-items:center;gap:0.8rem;padding:0.75rem 1rem;border-radius:12px;color:rgba(255,255,255,0.6);text-decoration:none;font-size:0.95rem;font-weight:500;transition:all 0.2s;border:none;background:none;cursor:pointer;width:100%;text-align:left;}
         .nav-link:hover{background:rgba(255,255,255,0.05);color:white;}
-        .nav-link.active{background:rgba(52,211,153,0.1);color:hsl(160,60%,65%);border:1px solid rgba(52,211,153,0.15);}
+        .nav-link.active{background:rgba(var(--secondary-rgb, 52,211,153), 0.1);color:var(--secondary);border:1px solid rgba(var(--secondary-rgb, 52,211,153), 0.15);}
         .nav-link.logout{color:rgba(239,68,68,0.7);margin-top:auto;}
         .nav-link.logout:hover{background:rgba(239,68,68,0.08);color:#fca5a5;}
         /* Completion Bar */
-        .completion-box{background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.15);border-radius:14px;padding:1rem;margin-bottom:1.5rem;}
-        .completion-box .pct{font-size:1.5rem;font-weight:800;color:hsl(160,60%,60%);}
+        .completion-box{background:rgba(var(--secondary-rgb, 52,211,153), 0.06);border:1px solid rgba(var(--secondary-rgb, 52,211,153), 0.15);border-radius:14px;padding:1rem;margin-bottom:1.5rem;}
+        .completion-box .pct{font-size:1.5rem;font-weight:800;color:var(--secondary);}
         .completion-box p{font-size:0.8rem;color:rgba(255,255,255,0.5);margin-bottom:0.5rem;}
         .comp-bar{background:rgba(255,255,255,0.08);border-radius:100px;height:6px;overflow:hidden;}
-        .comp-bar-fill{height:100%;background:linear-gradient(90deg,hsl(160,60%,40%),hsl(160,60%,60%));border-radius:100px;transition:width 0.8s ease;}
+        .comp-bar-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--secondary));border-radius:100px;transition:width 0.8s ease;}
         /* Main */
         .main{padding:2.5rem;overflow-y:auto;}
         .page-header{margin-bottom:2rem;}
@@ -55,7 +55,10 @@
 <div class="layout">
     <!-- SIDEBAR -->
     <div class="sidebar">
-        <div class="logo">🚀 RH-IA V3</div>
+        <div class="logo" style="display: flex; align-items: center; gap: 10px; margin-bottom: 2rem;">
+            <img src="" class="app-logo" style="max-height: 35px; display: none;">
+            <span class="app-name" style="font-size: 1.1rem; font-weight: 800;">RH-IA V3</span>
+        </div>
         <div class="completion-box">
             <div class="pct" id="comp-pct">0%</div>
             <p>Complétion du profil</p>
@@ -98,6 +101,10 @@
                     <div class="form-group">
                         <label>Ville, Pays * <span class="ai-tag">IA</span></label>
                         <input type="text" id="ville" class="form-control" placeholder="Casablanca, Maroc">
+                    </div>
+                    <div class="form-group">
+                        <label>Date de Naissance <span class="ai-tag">IA</span></label>
+                        <input type="date" id="date_naissance" class="form-control">
                     </div>
                     <div class="form-group full">
                         <label>Profil LinkedIn</label>
@@ -160,6 +167,14 @@
                             ⏳ Analyse IA du nouveau CV en cours... Veuillez patienter.
                         </div>
                     </div>
+                    <div class="form-group full">
+                        <label>Compétences clés <span class="ai-tag">IA</span></label>
+                        <input type="text" id="competences" class="form-control" placeholder="Ex: Project Management, Python, Team Leadership...">
+                    </div>
+                    <div class="form-group full">
+                        <label>Résumé professionnel <span class="ai-tag">IA</span></label>
+                        <textarea id="resume" class="form-control" rows="3" placeholder="Bref résumé de votre parcours..."></textarea>
+                    </div>
                 </div>
             </div>
 
@@ -200,6 +215,7 @@
 <div class="toast" id="toast">✅ Profil sauvegardé avec succès !</div>
 
 <script src="/static/assets/js/api.js"></script>
+<script src="/static/assets/js/branding.js"></script>
 <script>
     const token = localStorage.getItem('access_token');
     const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -209,10 +225,17 @@
     async function loadProfile() {
         // 1. Données IA depuis localStorage (après upload CV)
         const aiData = JSON.parse(localStorage.getItem('ai_extracted') || '{}');
-        const aiFields = ['first_name','last_name','phone','ville','diplome','etablissement','dernier_poste','annees_experience'];
+        const aiFields = ['first_name','last_name','phone','ville','date_naissance','diplome','etablissement','dernier_poste','annees_experience','competences','resume'];
         aiFields.forEach(f => {
             const el = document.getElementById(f);
-            if (el && aiData[f]) { el.value = aiData[f]; el.classList.add('ai-filled'); }
+            if (el && aiData[f]) { 
+                if (f === 'competences' && Array.isArray(aiData[f])) {
+                    el.value = aiData[f].join(', ');
+                } else {
+                    el.value = aiData[f]; 
+                }
+                el.classList.add('ai-filled'); 
+            }
         });
 
         // 2. Email depuis l'user connecté
@@ -223,9 +246,15 @@
             const res = await apiClient.get('/candidate/profile');
             if (res.profile) {
                 const p = res.profile;
-                ['first_name','last_name','phone','ville','linkedin_url','diplome','etablissement','dernier_poste','annees_experience','disponibilite','motivation'].forEach(f => {
+                ['first_name','last_name','phone','ville','date_naissance','linkedin_url','diplome','etablissement','dernier_poste','annees_experience','disponibilite','motivation','competences','resume'].forEach(f => {
                     const el = document.getElementById(f);
-                    if (el && p[f]) el.value = p[f];
+                    if (el && p[f]) {
+                        if (f === 'competences' && Array.isArray(p[f])) {
+                            el.value = p[f].join(', ');
+                        } else {
+                            el.value = p[f];
+                        }
+                    }
                 });
                 if (p.pretentions_salariales) document.getElementById('pretentions_salariales').value = p.pretentions_salariales;
                 
@@ -251,6 +280,7 @@
             last_name: document.getElementById('last_name').value,
             phone: document.getElementById('phone').value,
             ville: document.getElementById('ville').value,
+            date_naissance: document.getElementById('date_naissance').value,
             linkedin_url: document.getElementById('linkedin_url').value,
             diplome: document.getElementById('diplome').value,
             etablissement: document.getElementById('etablissement').value,
@@ -258,6 +288,8 @@
             annees_experience: document.getElementById('annees_experience').value,
             disponibilite: document.getElementById('disponibilite').value,
             motivation: document.getElementById('motivation').value,
+            competences: document.getElementById('competences').value.split(',').map(s => s.trim()),
+            resume: document.getElementById('resume').value,
         };
         const sal = parseFloat(document.getElementById('pretentions_salariales').value);
         if (sal) payload.pretentions_salariales = sal;

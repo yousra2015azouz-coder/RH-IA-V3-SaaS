@@ -108,9 +108,9 @@
     <div class="app-container">
         <!-- Sidebar -->
         <div class="sidebar glass">
-            <div class="logo">
-                <img src="" class="app-logo" style="max-width: 100%; display: none;">
-                <span class="logo-text" style="font-size: 1.5rem; font-weight: 800; color: var(--primary-light);">RH-IA V3</span>
+            <div class="logo" style="display: flex; align-items: center; gap: 12px; margin-bottom: 3rem;">
+                <img src="" class="app-logo" style="max-height: 35px; display: none;">
+                <span class="app-name" style="font-size: 1.5rem; font-weight: 800; color: var(--text-main);">RH-IA V3</span>
             </div>
             <nav style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 3rem;">
                 <a href="index.html" class="btn btn-primary" style="width: 100%; justify-content: flex-start;">
@@ -134,7 +134,7 @@
         <div class="main-content">
             <header class="header">
                 <div>
-                    <h1 class="app-name">Plateforme RH</h1>
+                    <h1 class="app-name">RH-IA V3</h1>
                     <p style="color: var(--text-muted);">Session Directeur RH</p>
                 </div>
                 <div class="glass" id="user-info" style="padding: 0.5rem 1rem;">Chargement...</div>
@@ -199,34 +199,88 @@
         let allCandidates = [];
 
         async function init() {
-            const user = authService.getCurrentUser();
-            document.getElementById('user-info').textContent = `${user.first_name} ${user.last_name}`;
-            
-            // Charger les offres
-            const jobsData = await apiClient.get("/jobs");
-            const selector = document.getElementById('job-selector');
-            jobsData.jobs.forEach(j => {
-                const opt = document.createElement('option');
-                opt.value = j.id;
-                opt.textContent = j.title;
-                selector.appendChild(opt);
-            });
+            console.log("🚀 Initialisation du Dashboard...");
+            try {
+                const user = authService.getCurrentUser();
+                if (user) {
+                    document.getElementById('user-info').textContent = `${user.first_name || ''} ${user.last_name || ''}`;
+                    console.log("👤 Utilisateur chargé:", user.email);
+                } else {
+                    console.warn("⚠️ Aucun utilisateur trouvé dans le stockage local.");
+                    document.getElementById('user-info').textContent = "Non connecté";
+                }
+                
+                // Charger les offres
+                console.log("📥 Chargement des offres d'emploi...");
+                const jobsData = await apiClient.get("/jobs");
+                console.log("📦 Données reçues:", jobsData);
 
-            // Gérer le hash initial (ex: #jobs)
-            const hash = window.location.hash.replace('#', '');
-            if (hash) {
-                switchRubric(hash);
+                if (!jobsData || !jobsData.jobs) {
+                    console.error("❌ Erreur: Format de données invalide pour les offres");
+                    return;
+                }
+
+                const selector = document.getElementById('job-selector');
+                selector.innerHTML = '<option value="">Sélectionnez une offre d\'emploi...</option>';
+                
+                jobsData.jobs.forEach(j => {
+                    const opt = document.createElement('option');
+                    opt.value = j.id;
+                    opt.textContent = j.title;
+                    selector.appendChild(opt);
+                });
+
+                // Sélectionner la première offre par défaut si disponible
+                if (jobsData.jobs.length > 0) {
+                    selector.value = jobsData.jobs[0].id;
+                    console.log("🎯 Offre sélectionnée par défaut:", jobsData.jobs[0].title);
+                    await updateWorkspace();
+                } else {
+                    console.warn("⚠️ Aucune offre trouvée pour ce tenant.");
+                    document.getElementById('workspace').innerHTML = `
+                        <div style="text-align: center; padding-top: 5rem; color: var(--text-muted);">
+                            <h3>Aucune offre d'emploi active</h3>
+                            <p>Commencez par créer une offre dans la rubrique "Offres d'emploi".</p>
+                        </div>
+                    `;
+                }
+
+                // Gérer le hash initial (ex: #jobs)
+                const hash = window.location.hash.replace('#', '');
+                if (hash) {
+                    switchRubric(hash);
+                }
+            } catch (err) {
+                console.error("❌ Erreur lors de l'initialisation:", err);
+                document.getElementById('user-info').textContent = "Erreur de chargement";
             }
         }
 
+        init();
+
         async function updateWorkspace() {
             currentJobId = document.getElementById('job-selector').value;
-            if(!currentJobId) return;
+            if(!currentJobId) {
+                document.getElementById('job-stats').textContent = "";
+                return;
+            }
 
             // Charger les candidats de cette offre
             const data = await apiClient.get("/candidates");
             allCandidates = data.candidates.filter(c => c.job_offer_id === currentJobId);
             
+            // Stats globales de l'offre
+            const total = allCandidates.length;
+            const avgMatch = total > 0 ? (allCandidates.reduce((acc, c) => acc + (c.ai_score || 0), 0) / total).toFixed(0) : 0;
+            document.getElementById('job-stats').innerHTML = `
+                <span class="badge" style="background:rgba(52,211,153,0.1); color:var(--secondary); border:1px solid rgba(52,211,153,0.2);">
+                    👥 ${total} Candidats
+                </span>
+                <span class="badge" style="background:rgba(235,160,35,0.1); color:#fcd34d; border:1px solid rgba(235,160,35,0.2); margin-left:10px;">
+                    📈 Match Moyen: ${avgMatch}%
+                </span>
+            `;
+
             renderRubric();
         }
 
@@ -550,32 +604,76 @@
         }
 
         function renderChatbot(container) {
+            const inProgress = allCandidates.filter(c => c.pipeline_stage === 'chatbot');
+            // On considère comme "qualifié" tout candidat qui a passé l'étape chatbot
+            const qualified = allCandidates.filter(c => !['applied', 'chatbot'].includes(c.pipeline_stage));
+            const totalChatbot = inProgress.length + qualified.length;
+            
+            const avgScore = totalChatbot > 0 
+                ? (allCandidates.filter(c => c.ai_score).reduce((acc, c) => acc + (c.ai_score || 0), 0) / (allCandidates.filter(c => c.ai_score).length || 1)).toFixed(1) 
+                : "0.0";
+
             container.innerHTML = `
-                <h2>Analyse Chatbot & Pré-qualification</h2>
-                <div class="stats-grid">
-                    <div class="glass stat-card">
-                        <p class="stat-label">Candidats qualifiés IA</p>
-                        <p class="stat-value">${allCandidates.filter(c => c.pipeline_stage === 'chatbot_completed').length}</p>
-                    </div>
-                    <div class="glass stat-card">
-                        <p class="stat-label">Score IA Moyen</p>
-                        <p class="stat-value">${(allCandidates.reduce((acc, c) => acc + (c.ai_score || 0), 0) / (allCandidates.length || 1)).toFixed(1)}/100</p>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem;">
+                    <div>
+                        <h2 style="font-size: 2.2rem; font-weight: 800;">🤖 Analyse Chatbot & Pré-qualification</h2>
+                        <p style="color: var(--text-muted);">Visualisez les résultats des entretiens menés par l'IA en temps réel.</p>
                     </div>
                 </div>
-                <div class="glass" style="padding: 1rem;">
-                    <h3>Résumés IA des conversations</h3>
-                    <div style="margin-top: 1rem;">
-                        ${allCandidates.filter(c => c.pipeline_stage === 'chatbot_completed').map(c => `
-                            <div class="candidate-card glass" style="border-left-color: var(--secondary);">
-                                <div>
-                                    <strong>${c.first_name} ${c.last_name}</strong>
-                                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 5px;">
-                                        "Candidat très motivé, possède une expérience solide en React. Réponse claire sur les prétentions salariales."
-                                    </p>
-                                </div>
-                                <button class="btn btn-outline btn-sm">Détails</button>
+
+                <div class="kpi-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2.5rem;">
+                    <div class="glass" style="padding: 1.5rem; border-radius: 20px; text-align: center; border-bottom: 3px solid #3b82f6;">
+                        <div style="font-size: 1.5rem; margin-bottom: 10px;">💬</div>
+                        <div style="font-size: 2rem; font-weight: 800; color: #3b82f6;">${inProgress.length}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Entretiens en cours</div>
+                    </div>
+                    <div class="glass" style="padding: 1.5rem; border-radius: 20px; text-align: center; border-bottom: 3px solid var(--secondary);">
+                        <div style="font-size: 1.5rem; margin-bottom: 10px;">✅</div>
+                        <div style="font-size: 2rem; font-weight: 800; color: var(--secondary);">${qualified.length}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Entretiens Terminés</div>
+                    </div>
+                    <div class="glass" style="padding: 1.5rem; border-radius: 20px; text-align: center; border-bottom: 3px solid #f59e0b;">
+                        <div style="font-size: 1.5rem; margin-bottom: 10px;">📈</div>
+                        <div style="font-size: 2rem; font-weight: 800; color: #f59e0b;">${avgScore}%</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Score de Match Moyen</div>
+                    </div>
+                </div>
+
+                <div class="glass" style="padding: 2rem; border-radius: 24px;">
+                    <h3 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px;">
+                        <span>📋 Résumés d'évaluations IA</span>
+                        <span class="badge" style="font-size: 0.7rem; background: rgba(255,255,255,0.05);">${qualified.length} terminés</span>
+                    </h3>
+                    
+                    <div style="display: grid; gap: 1.2rem;">
+                        ${qualified.length === 0 ? `
+                            <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                                <p>Aucun entretien terminé pour le moment. ${inProgress.length > 0 ? `(${inProgress.length} en cours)` : ''}</p>
                             </div>
-                        `).join('') || '<p>Aucune conversation terminée pour le moment.</p>'}
+                        ` : qualified.map(c => `
+                            <div class="glass-hover" style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; border-radius: 16px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); transition: 0.3s;">
+                                <div style="display: flex; gap: 1.5rem; align-items: center; flex: 1;">
+                                    <div style="width: 50px; height: 50px; border-radius: 12px; background: rgba(52,211,153,0.1); color: var(--secondary); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: 800;">
+                                        ${c.first_name[0]}${c.last_name[0]}
+                                    </div>
+                                    <div style="flex: 1;">
+                                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
+                                            <span style="font-weight: 700; font-size: 1.1rem;">${c.first_name} ${c.last_name}</span>
+                                            <span class="badge" style="background: ${c.ai_score >= 80 ? 'rgba(16,185,129,0.15)' : 'rgba(235,160,35,0.15)'}; color: ${c.ai_score >= 80 ? '#34d399' : '#fcd34d'};">
+                                                Match ${c.ai_score || 0}%
+                                            </span>
+                                            <span style="font-size: 0.7rem; color: var(--text-muted); opacity: 0.6;">(Statut: ${c.pipeline_stage})</span>
+                                        </div>
+                                        <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; font-style: italic;">
+                                            "${c.ai_summary || "L'IA a qualifié ce candidat positivement durant l'entretien."}"
+                                        </p>
+                                    </div>
+                                </div>
+                                <div style="margin-left: 2rem;">
+                                    <button class="btn btn-outline btn-sm" onclick="viewCandidate('${c.id}')" style="white-space: nowrap;">📄 Voir profil complet</button>
+                                </div>
+                            </div>
+                        `).join('')}
                     </div>
                 </div>
             `;
@@ -641,8 +739,7 @@
                                 ${doc51 ? `<a href="${doc51}" target="_blank" title="Voir Compte Rendu" style="text-decoration:none; font-size:1.2rem;">📄</a>` : '—'}
                             </td>
                             <td style="text-align: center;">
-                                ${doc52 ? `<a href="${doc52}" target="_blank" title="Voir Dossier RH" style="text-decoration:none; font-size:1.2rem;">📂</a>` : 
-                                  (a.status === 'approved' ? 'Génération...' : '<small style="color:var(--text-muted)">Attente Signature DG</small>')}
+                                <a href="javascript:void(0)" onclick="apiClient.viewPdf('/approval/${a.id}/pdf')" title="Voir Dossier RH" style="text-decoration:none; font-size:1.2rem;">📂</a>
                             </td>
                         </tr>
                     `;
@@ -1203,10 +1300,122 @@
             } catch (err) { alert(err.message); }
         }
 
+        async function viewCandidate(candidateId) {
+            const cand = allCandidates.find(c => c.id === candidateId) || await apiClient.get(`/candidates/${candidateId}`);
+            if(!cand) return;
+
+            const container = document.getElementById('modal-container');
+            container.innerHTML = `
+                <div class="modal-overlay" id="candidate-modal" style="display: flex; align-items: center; justify-content: center; z-index: 1000;">
+                    <div class="modal-content glass" style="max-width: 900px; width: 95%; background: #0f172a; border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; max-height: 90vh; overflow-y: auto;">
+                        <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.05); padding: 2rem; position: sticky; top: 0; background: #0f172a; z-index: 10;">
+                            <div style="display: flex; align-items: center; gap: 1.5rem;">
+                                <div style="width: 64px; height: 64px; border-radius: 16px; background: rgba(52,211,153,0.1); color: var(--secondary); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 800;">
+                                    ${cand.first_name[0]}${cand.last_name[0]}
+                                </div>
+                                <div>
+                                    <h2 style="margin: 0; font-size: 1.8rem; font-weight: 800;">${cand.first_name} ${cand.last_name}</h2>
+                                    <p style="color: var(--text-muted); margin: 5px 0 0 0;">Candidat au poste de <b>${cand.job_offers ? cand.job_offers.title : 'N/A'}</b></p>
+                                </div>
+                            </div>
+                            <button class="close-modal" onclick="document.getElementById('candidate-modal').remove()" style="font-size: 2rem;">×</button>
+                        </div>
+                        
+                        <div class="modal-body" style="padding: 2rem;">
+                            <div style="display: grid; grid-template-columns: 1fr 300px; gap: 2rem;">
+                                <!-- Colonne Gauche -->
+                                <div style="display: grid; gap: 2rem;">
+                                    <section>
+                                        <h4 style="margin-bottom: 1rem; color: var(--secondary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.1em;">✨ Synthèse IA</h4>
+                                        <div class="glass" style="padding: 1.5rem; border-radius: 16px; background: rgba(52,211,153,0.03); border-color: rgba(52,211,153,0.15);">
+                                            <p style="line-height: 1.6; font-style: italic;">
+                                                "${cand.ai_summary || "L'intelligence artificielle n'a pas encore généré de synthèse pour ce candidat."}"
+                                            </p>
+                                        </div>
+                                    </section>
+
+                                    <section>
+                                        <h4 style="margin-bottom: 1rem; color: var(--secondary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.1em;">📋 Informations Profil</h4>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                            <div class="glass" style="padding: 1rem; border-radius: 12px;">
+                                                <small style="color: var(--text-muted);">Email</small>
+                                                <div style="font-weight: 600;">${cand.email}</div>
+                                            </div>
+                                            <div class="glass" style="padding: 1rem; border-radius: 12px;">
+                                                <small style="color: var(--text-muted);">Téléphone</small>
+                                                <div style="font-weight: 600;">${cand.phone || 'N/A'}</div>
+                                            </div>
+                                            <div class="glass" style="padding: 1rem; border-radius: 12px;">
+                                                <small style="color: var(--text-muted);">Ville</small>
+                                                <div style="font-weight: 600;">${cand.ville || 'N/A'}</div>
+                                            </div>
+                                            <div class="glass" style="padding: 1rem; border-radius: 12px;">
+                                                <small style="color: var(--text-muted);">Diplôme</small>
+                                                <div style="font-weight: 600;">${cand.diplome || 'N/A'}</div>
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    <section>
+                                        <h4 style="margin-bottom: 1rem; color: var(--secondary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.1em;">📁 Documents</h4>
+                                        <div style="display: flex; gap: 1rem;">
+                                            ${cand.cv_url ? `
+                                                <a href="${cand.cv_url}" target="_blank" class="btn btn-outline" style="flex: 1; text-decoration: none; text-align: center;">📄 Voir le CV (PDF)</a>
+                                            ` : '<p style="color: var(--danger);">Aucun CV disponible</p>'}
+                                            ${cand.linkedin_url ? `
+                                                <a href="${cand.linkedin_url}" target="_blank" class="btn btn-outline" style="flex: 1; text-decoration: none; text-align: center;">🔗 Profil LinkedIn</a>
+                                            ` : ''}
+                                        </div>
+                                    </section>
+                                </div>
+
+                                <!-- Colonne Droite : Scores & Statut -->
+                                <div style="display: grid; gap: 1.5rem; align-content: start;">
+                                    <div class="glass" style="padding: 1.5rem; border-radius: 20px; text-align: center; background: linear-gradient(135deg, rgba(52,211,153,0.1), transparent);">
+                                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px;">Score de Match IA</div>
+                                        <div style="font-size: 3rem; font-weight: 800; color: var(--secondary);">${cand.ai_score || 0}%</div>
+                                        <div class="comp-bar" style="margin-top: 10px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden;">
+                                            <div style="width: ${cand.ai_score || 0}%; height: 100%; background: var(--secondary);"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="glass" style="padding: 1.5rem; border-radius: 20px;">
+                                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">Statut Pipeline</div>
+                                        <span class="badge" style="width: 100%; text-align: center; padding: 10px; font-size: 0.9rem; background: rgba(235,160,35,0.15); color: #fcd34d;">
+                                            ${cand.pipeline_stage.toUpperCase().replace('_', ' ')}
+                                        </span>
+                                    </div>
+
+                                    <div class="glass" style="padding: 1.5rem; border-radius: 20px;">
+                                        <h5 style="margin: 0 0 10px 0; font-size: 0.85rem;">Compétences Détectées</h5>
+                                        <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+                                            ${(cand.competences || []).length > 0 
+                                                ? cand.competences.map(s => `<span class="badge" style="background: rgba(255,255,255,0.05); font-size: 0.7rem;">${s}</span>`).join('') 
+                                                : '<small style="color: var(--text-muted);">Aucune donnée</small>'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="modal-footer" style="padding: 2rem; border-top: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: flex-end; gap: 1rem;">
+                            <button class="btn btn-outline" onclick="document.getElementById('candidate-modal').remove()">Fermer</button>
+                            ${cand.pipeline_stage === 'chatbot_completed' ? `
+                                <button class="btn btn-primary" onclick="scheduleInterview('${cand.id}')">📅 Planifier Entretien</button>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         async function scheduleInterview(id) {
+            if(!confirm("Voulez-vous planifier un entretien pour ce candidat ?")) return;
             try {
                 await apiClient.patch(`/candidates/${id}/stage`, { stage: 'interview_scheduled' });
-                updateWorkspace();
+                document.getElementById('candidate-modal')?.remove();
+                await updateWorkspace();
+                alert("✅ Statut mis à jour ! Le candidat a été déplacé vers l'étape Évaluation.");
             } catch (err) { alert(err.message); }
         }
 

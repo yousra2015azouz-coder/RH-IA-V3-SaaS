@@ -75,17 +75,26 @@ async def create_evaluation(body: EvaluationCreate, user=Depends(require_roles(D
     }).execute()
 
     # Récupérer les informations complètes pour le PDF
-    cand_info = supabase_admin.table("candidates").select("first_name, last_name, job_offer_id, job_offers(title)").eq("id", body.candidate_id).execute()
+    cand_info = supabase_admin.table("candidates").select("first_name, last_name, email, phone, job_offer_id, job_offers(title)").eq("id", body.candidate_id).execute()
     cand_data = get_data(cand_info)
     
     candidate_name = "Candidat Inconnu"
+    candidate_email = "N/A"
+    candidate_phone = "N/A"
     job_title = "Poste non spécifié"
     
     if cand_data and len(cand_data) > 0:
         c = cand_data[0]
         candidate_name = f"{c.get('first_name', '')} {c.get('last_name', '')}".strip() or "Candidat"
+        candidate_email = c.get('email', 'N/A')
+        candidate_phone = c.get('phone', 'N/A')
         if c.get('job_offers'):
             job_title = c['job_offers'].get('title', 'Poste')
+
+    # Récupérer branding
+    brand_res = supabase_admin.table("tenants").select("*").eq("id", user["tenant_id"]).execute()
+    brand_data = get_data(brand_res)
+    branding = brand_data[0] if brand_data else {}
 
     pdf_filename = f"compte_rendu_{body.candidate_id}_{uuid.uuid4().hex[:6]}.pdf"
     pdf_path = os.path.join("backend/static/documents", pdf_filename)
@@ -93,12 +102,19 @@ async def create_evaluation(body: EvaluationCreate, user=Depends(require_roles(D
     # Préparer données pour le PDF (Doc 5.1)
     pdf_data = {
         "candidate_name": candidate_name,
+        "candidate_email": candidate_email,
+        "candidate_phone": candidate_phone,
         "job_title": job_title,
-        "date": body.date if hasattr(body, 'date') else "26/04/2026",
+        "interviewer_name": f"{user.get('first_name', '')} {user.get('last_name', '')}".strip() or "Directeur",
+        "date": "26/04/2026", # Date fixe pour la démo ou dynamique
         "criteria": body.criteria,
         "global_score": body.global_score / 20, # Conversion score 100 -> 5
         "final_opinion": body.final_opinion,
-        "comments": body.comments or "Aucun commentaire particulier."
+        "comments": body.comments or "Aucun commentaire particulier.",
+        "ai_summary": summary,
+        "app_name": branding.get("name"),
+        "logo_url": branding.get("logo_url"),
+        "primary_color": branding.get("primary_color")
     }
     
     try:

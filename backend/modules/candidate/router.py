@@ -38,9 +38,12 @@ class CandidateProfileUpdate(BaseModel):
     etablissement: Optional[str] = None
     dernier_poste: Optional[str] = None
     annees_experience: Optional[str] = None
+    date_naissance: Optional[str] = None
     pretentions_salariales: Optional[float] = None
     disponibilite: Optional[str] = None
     motivation: Optional[str] = None
+    competences: Optional[list[str]] = None
+    resume: Optional[str] = None
 
 
 # ── ENDPOINTS ─────────────────────────────────────────────────

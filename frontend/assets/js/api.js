@@ -5,7 +5,11 @@
 const API_BASE_URL = window.location.origin + "/api/v1";
 
 const apiClient = {
-    getToken: () => localStorage.getItem("rh_token"),
+    getToken: () => {
+        return localStorage.getItem("rh_token") || 
+               localStorage.getItem("access_token") || 
+               localStorage.getItem("token");
+    },
     
     setToken: (token) => localStorage.setItem("rh_token", token),
     
@@ -86,11 +90,10 @@ const apiClient = {
             });
 
             if (response.status === 401) {
-                this.clearToken();
-                if (!window.location.pathname.includes("/login.html")) {
-                    window.location.href = "/static/auth/login.html";
-                }
-                return null;
+                // Pour le debug, on ne déconnecte pas tout de suite sur un upload
+                console.warn("Erreur 401 sur upload, vérifiez le token.");
+                // this.clearToken();
+                // window.location.href = "/static/auth/login.html";
             }
 
             const data = await response.json();
@@ -100,8 +103,29 @@ const apiClient = {
             console.error(`Upload Error [${endpoint}]:`, error);
             throw error;
         }
-    }
+    },
 
+    // Visualisation de PDF avec authentification
+    async viewPdf(endpoint) {
+        const token = this.getToken();
+        try {
+            const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                method: "GET",
+                headers: {
+                    ...(token && { "Authorization": `Bearer ${token}` })
+                }
+            });
+
+            if (!response.ok) throw new Error("Erreur lors de l'ouverture du PDF");
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            window.open(url, '_blank');
+        } catch (error) {
+            console.error("PDF View Error:", error);
+            alert("Impossible d'ouvrir le document. Vérifiez votre connexion.");
+        }
+    }
 };
 
 window.apiClient = apiClient;
