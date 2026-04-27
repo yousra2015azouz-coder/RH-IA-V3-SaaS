@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Mon Profil Candidat | RH-IA V3</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/assets/css/theme.css">
@@ -104,9 +107,23 @@
                     </div>
                     <div class="form-group">
                         <label>Date de Naissance <span class="ai-tag">IA</span></label>
-                        <input type="date" id="date_naissance" class="form-control">
+                        <input type="date" id="birth_date" class="form-control">
                     </div>
-                    <div class="form-group full">
+                    <div class="form-group">
+                        <label>Situation Familiale <span class="ai-tag">IA</span></label>
+                        <select id="situation_familiale" class="form-control">
+                            <option value="">Sélectionnez</option>
+                            <option value="Célibataire">Célibataire</option>
+                            <option value="Marié(e)">Marié(e)</option>
+                            <option value="Divorcé(e)">Divorcé(e)</option>
+                            <option value="Veuf(ve)">Veuf(ve)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Personnes à charge <span class="ai-tag">IA</span></label>
+                        <input type="number" id="personnes_a_charge" class="form-control" placeholder="0">
+                    </div>
+                    <div class="form-group">
                         <label>Profil LinkedIn</label>
                         <input type="url" id="linkedin_url" class="form-control" placeholder="https://linkedin.com/in/...">
                     </div>
@@ -169,11 +186,11 @@
                     </div>
                     <div class="form-group full">
                         <label>Compétences clés <span class="ai-tag">IA</span></label>
-                        <input type="text" id="competences" class="form-control" placeholder="Ex: Project Management, Python, Team Leadership...">
+                        <input type="text" id="ai_skills" class="form-control" placeholder="Ex: Project Management, Python, Team Leadership...">
                     </div>
                     <div class="form-group full">
                         <label>Résumé professionnel <span class="ai-tag">IA</span></label>
-                        <textarea id="resume" class="form-control" rows="3" placeholder="Bref résumé de votre parcours..."></textarea>
+                        <textarea id="ai_summary" class="form-control" rows="3" placeholder="Bref résumé de votre parcours..."></textarea>
                     </div>
                 </div>
             </div>
@@ -225,14 +242,34 @@
     async function loadProfile() {
         // 1. Données IA depuis localStorage (après upload CV)
         const aiData = JSON.parse(localStorage.getItem('ai_extracted') || '{}');
-        const aiFields = ['first_name','last_name','phone','ville','date_naissance','diplome','etablissement','dernier_poste','annees_experience','competences','resume'];
-        aiFields.forEach(f => {
-            const el = document.getElementById(f);
-            if (el && aiData[f]) { 
-                if (f === 'competences' && Array.isArray(aiData[f])) {
-                    el.value = aiData[f].join(', ');
+        
+        // Mapping entre les IDs du formulaire et les clés brutes de l'IA
+        const aiKeyMap = {
+            'first_name': 'first_name',
+            'last_name': 'last_name',
+            'phone': 'phone',
+            'ville': 'ville',
+            'birth_date': 'date_naissance', // Mapping spécial
+            'situation_familiale': 'situation_familiale',
+            'personnes_a_charge': 'personnes_a_charge',
+            'diplome': 'diplome',
+            'etablissement': 'etablissement',
+            'dernier_poste': 'dernier_poste',
+            'annees_experience': 'annees_experience',
+            'ai_skills': 'competences', // Mapping spécial
+            'ai_summary': 'resume' // Mapping spécial
+        };
+
+        Object.keys(aiKeyMap).forEach(fieldId => {
+            const aiKey = aiKeyMap[fieldId];
+            const el = document.getElementById(fieldId);
+            const val = aiData[aiKey];
+            
+            if (el && val !== undefined && val !== null) { 
+                if (fieldId === 'ai_skills' && Array.isArray(val)) {
+                    el.value = val.join(', ');
                 } else {
-                    el.value = aiData[f]; 
+                    el.value = val; 
                 }
                 el.classList.add('ai-filled'); 
             }
@@ -246,10 +283,10 @@
             const res = await apiClient.get('/candidate/profile');
             if (res.profile) {
                 const p = res.profile;
-                ['first_name','last_name','phone','ville','date_naissance','linkedin_url','diplome','etablissement','dernier_poste','annees_experience','disponibilite','motivation','competences','resume'].forEach(f => {
+                ['first_name','last_name','phone','ville','birth_date','situation_familiale','personnes_a_charge','linkedin_url','diplome','etablissement','dernier_poste','annees_experience','disponibilite','motivation','ai_skills','ai_summary'].forEach(f => {
                     const el = document.getElementById(f);
                     if (el && p[f]) {
-                        if (f === 'competences' && Array.isArray(p[f])) {
+                        if (f === 'ai_skills' && Array.isArray(p[f])) {
                             el.value = p[f].join(', ');
                         } else {
                             el.value = p[f];
@@ -280,7 +317,9 @@
             last_name: document.getElementById('last_name').value,
             phone: document.getElementById('phone').value,
             ville: document.getElementById('ville').value,
-            date_naissance: document.getElementById('date_naissance').value,
+            birth_date: document.getElementById('birth_date').value,
+            situation_familiale: document.getElementById('situation_familiale').value,
+            personnes_a_charge: parseInt(document.getElementById('personnes_a_charge').value) || 0,
             linkedin_url: document.getElementById('linkedin_url').value,
             diplome: document.getElementById('diplome').value,
             etablissement: document.getElementById('etablissement').value,
@@ -288,8 +327,8 @@
             annees_experience: document.getElementById('annees_experience').value,
             disponibilite: document.getElementById('disponibilite').value,
             motivation: document.getElementById('motivation').value,
-            competences: document.getElementById('competences').value.split(',').map(s => s.trim()),
-            resume: document.getElementById('resume').value,
+            ai_skills: document.getElementById('ai_skills').value.split(',').map(s => s.trim()),
+            ai_summary: document.getElementById('ai_summary').value,
         };
         const sal = parseFloat(document.getElementById('pretentions_salariales').value);
         if (sal) payload.pretentions_salariales = sal;
@@ -299,9 +338,17 @@
             const pct = res.profile_completion || 0;
             document.getElementById('comp-pct').textContent = pct + '%';
             document.getElementById('comp-fill').style.width = pct + '%';
-            const t = document.getElementById('toast');
-            t.style.display = 'block';
-            setTimeout(() => t.style.display = 'none', 3000);
+            
+            const pendingJobId = localStorage.getItem('pending_job_id');
+            if (pendingJobId) {
+                localStorage.removeItem('pending_job_id');
+                alert("✅ Profil validé ! Vous allez être redirigé pour finaliser votre candidature et passer l'entretien IA.");
+                window.location.href = `/static/portal/apply.html?job_id=${pendingJobId}`;
+            } else {
+                const t = document.getElementById('toast');
+                t.style.display = 'block';
+                setTimeout(() => t.style.display = 'none', 3000);
+            }
         } catch(err) { alert('Erreur: ' + err.message); }
     });
 
@@ -328,6 +375,9 @@
             if (!res.ok) throw new Error(data.detail || "Erreur lors de l'upload");
             
             // Success
+            if (data.extracted_data) {
+                localStorage.setItem('ai_extracted', JSON.stringify(data.extracted_data));
+            }
             alert("✅ Nouveau CV analysé avec succès ! Vos données ont été mises à jour par l'IA.");
             window.location.reload();
         } catch(err) {

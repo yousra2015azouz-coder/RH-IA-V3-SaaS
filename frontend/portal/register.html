@@ -109,6 +109,7 @@
     <script>
         const params = new URLSearchParams(window.location.search);
         const tenantSlug = params.get('tenant') || 'demo';
+        const jobOfferId = params.get('job_id');
         
         const fileInput = document.getElementById('cv-file');
         const uploadArea = document.getElementById('upload-area');
@@ -159,6 +160,16 @@
                 localStorage.setItem('access_token', loginRes.access_token);
                 localStorage.setItem('user', JSON.stringify(loginRes.user));
                 localStorage.setItem('rh_user', JSON.stringify(loginRes.user));
+
+                // Stocker les données IA pour pré-remplissage immédiat
+                if (data.extracted_data) {
+                    localStorage.setItem('ai_extracted', JSON.stringify(data.extracted_data));
+                }
+
+                // Si le candidat venait d'une offre, on sauvegarde l'ID pour le rediriger après la validation du profil
+                if (jobOfferId) {
+                    localStorage.setItem('pending_job_id', jobOfferId);
+                }
 
                 window.location.href = '/static/portal/profile.html?status=welcome';
 

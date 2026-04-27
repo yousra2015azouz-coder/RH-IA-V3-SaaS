@@ -209,19 +209,18 @@ async def apply_existing_candidate(
     }).eq("id", candidate["id"]).execute()
     
     # 4. Déclencher l'analyse IA (Recalcul du score pour ce poste spécifique)
-    # On récupère le CV depuis le storage
-    if candidate.get("cv_url"):
+    # On passe directement le texte du CV extrait lors de l'inscription
+    if candidate.get("cv_text"):
         try:
-            cv_response = supabase_admin.storage.from_("documents").download(candidate["cv_url"])
             background_tasks.add_task(
                 process_cv_and_score,
                 candidate["id"],
                 job["tenant_id"],
-                cv_response,
+                candidate["cv_text"],
                 job.get("requirements", "")
             )
         except Exception as e:
-            logger.error(f"Erreur récupération CV pour scoring: {e}")
+            logger.error(f"Erreur lancement scoring: {e}")
 
     return {
         "status": "submitted",
@@ -325,7 +324,7 @@ async def evaluate_candidate(candidate_id: str, body: dict, user=Depends(get_cur
         
         # 5. Mettre à jour candidat (score et lien doc)
         supabase_admin.table("candidates").update({
-            "evaluation_score_global": body.get("global_score"),
+            "ai_score": body.get("global_score"),
             "pipeline_stage": "evaluation_completed"
         }).eq("id", candidate_id).execute()
         

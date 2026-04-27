@@ -29,6 +29,7 @@ async def call_groq(
         ],
         "temperature": temperature,
         "max_tokens": max_tokens,
+        "timeout": 15.0,
     }
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}

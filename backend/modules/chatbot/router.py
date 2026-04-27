@@ -37,6 +37,12 @@ async def start_session(candidate_id: str):
         "messages": [],
         "is_completed": False
     }).execute()
+
+    # Mettre à jour le stage du candidat
+    supabase_admin.table("candidates").update({
+        "pipeline_stage": "chatbot"
+    }).eq("id", candidate_id).execute()
+
     session = get_data(session_res)
     return {"session_id": session[0]["id"] if session else None}
 

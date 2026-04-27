@@ -23,20 +23,34 @@ from backend.modules.ai.groq_client import call_groq
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """Tu es un expert RH spécialisé dans l'analyse de CV pour des entreprises marocaines.
-Extrais les informations du CV et retourne UNIQUEMENT un JSON valide avec ces champs :
+Extrais les informations du CV et retourne UNIQUEMENT un JSON valide avec cette structure exacte :
 {
-  "nom": "string",
+  "first_name": "Prénom du candidat",
+  "last_name": "NOM en majuscules",
   "email": "string",
-  "telephone": "string",
+  "phone": "string",
+  "ville": "string",
+  "date_naissance": "YYYY-MM-DD",
+  "linkedin_url": "URL LinkedIn complète",
+  "situation_familiale": "Célibataire | Marié(e) | Divorcé(e)",
+  "personnes_a_charge": 0,
+  "diplome": "Le nom du plus haut diplôme obtenu",
+  "etablissement": "Nom de l'école ou université du dernier diplôme",
+  "dernier_poste": "Intitulé du poste le plus récent",
+  "annees_experience": 0,
+  "pretentions_salariales": 0,
+  "disponibilite": "Immédiate | 1 mois | 3 mois",
   "competences": ["liste de compétences"],
-  "experience_years": 0,
-  "education": [{"diplome": "string", "etablissement": "string", "annee": "string"}],
   "langues": [{"langue": "string", "niveau": "string"}],
   "experiences": [{"poste": "string", "entreprise": "string", "duree": "string"}],
+  "motivation": "Génère un court paragraphe de motivation (2-3 phrases) basé sur le profil du candidat",
   "score_pertinence": 0,
-  "resume": "résumé exécutif en 3-4 phrases"
+  "resume": "résumé exécutif professionnel de 3 sentences"
 }
-Le score_pertinence est entre 0-100 et évalue la qualité globale du profil."""
+Règles :
+1. Si une information est absente, mets une chaîne vide "" ou 0 pour les chiffres.
+2. Pour les prétentions salariales, si absent, estime-les en fonction du marché marocain pour ce profil (en MAD Net).
+3. Le score_pertinence est entre 0-100."""
 
 
 async def extract_text_from_pdf(file_bytes: bytes) -> str:

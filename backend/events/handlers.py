@@ -36,6 +36,7 @@ async def on_candidate_created(payload: dict):
     if auto_invite:
         cand_res = supabase_admin.table("candidates").select("user_id").eq("id", candidate_id).execute()
         if cand_res.data:
+            # Notifier le candidat
             supabase_admin.table("notifications").insert({
                 "user_id": cand_res.data[0]["user_id"],
                 "tenant_id": tenant_id,
@@ -43,6 +44,11 @@ async def on_candidate_created(payload: dict):
                 "message": "Félicitations ! Votre profil a retenu notre attention. Vous êtes invité à passer un entretien avec notre assistant IA.",
                 "type": "chatbot_invite"
             }).execute()
+            
+            # Déplacer le candidat dans la colonne "Entretien IA"
+            supabase_admin.table("candidates").update({
+                "pipeline_stage": "chatbot"
+            }).eq("id", candidate_id).execute()
 
 
 # ── chatbot_completed ──────────────────────────────────────

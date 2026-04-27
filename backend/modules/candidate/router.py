@@ -2,11 +2,12 @@
 modules/candidate/router.py — API Portail Candidat Self-Service
 """
 import logging
-from fastapi import APIRouter, Request, HTTPException, Depends, Form, File, UploadFile
+from fastapi import APIRouter, Request, HTTPException, Depends, Form, File, UploadFile, BackgroundTasks
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from backend.config import supabase_admin, get_data
 from backend.auth.dependencies import get_current_user
+from backend.modules.recruitment.service import process_cv_and_score
 from backend.modules.candidate.service import (
     parse_cv_for_profile,
     get_candidate_by_user,
@@ -38,12 +39,14 @@ class CandidateProfileUpdate(BaseModel):
     etablissement: Optional[str] = None
     dernier_poste: Optional[str] = None
     annees_experience: Optional[str] = None
-    date_naissance: Optional[str] = None
+    birth_date: Optional[str] = None
     pretentions_salariales: Optional[float] = None
+    situation_familiale: Optional[str] = None
+    personnes_a_charge: Optional[int] = None
     disponibilite: Optional[str] = None
     motivation: Optional[str] = None
-    competences: Optional[list[str]] = None
-    resume: Optional[str] = None
+    ai_skills: Optional[list[str]] = None
+    ai_summary: Optional[str] = None
 
 
 # ── ENDPOINTS ─────────────────────────────────────────────────
@@ -90,11 +93,19 @@ async def register_with_cv(
             "last_name": extracted_data.get("last_name"),
             "phone": extracted_data.get("phone"),
             "ville": extracted_data.get("ville"),
+            "birth_date": extracted_data.get("date_naissance"),
+            "linkedin_url": extracted_data.get("linkedin_url"),
+            "situation_familiale": extracted_data.get("situation_familiale"),
+            "personnes_a_charge": extracted_data.get("personnes_a_charge", 0),
             "diplome": extracted_data.get("diplome"),
             "etablissement": extracted_data.get("etablissement"),
             "dernier_poste": extracted_data.get("dernier_poste"),
-            "annees_experience": extracted_data.get("annees_experience"),
-            "pipeline_stage": "applied"
+            "annees_experience": str(extracted_data.get("annees_experience", "0")),
+            "pretentions_salariales": extracted_data.get("pretentions_salariales"),
+            "disponibilite": extracted_data.get("disponibilite"),
+            "motivation": extracted_data.get("motivation"),
+            "ai_skills": extracted_data.get("competences", []),
+            "ai_summary": extracted_data.get("resume")
         }
         
         # Calcul complétion
@@ -102,10 +113,18 @@ async def register_with_cv(
         
         supabase_admin.table("candidates").insert(profile_payload).execute()
 
+        # 6. Générer un token d'accès pour connexion immédiate
+        login_resp = supabase_admin.auth.sign_in_with_password({
+            "email": email,
+            "password": password
+        })
+
         return {
             "status": "success",
             "message": "Compte créé et profil généré par l'IA",
-            "user": acc
+            "access_token": login_resp.session.access_token,
+            "user": acc,
+            "extracted_data": extracted_data
         }
 
     except Exception as e:
@@ -140,9 +159,25 @@ async def upload_and_parse_cv(
             file_path, cv_bytes, {"content-type": "application/pdf", "upsert": "true"}
         )
 
-        # 4. Stocker le chemin relatif du CV (pas d'URL publique !) + texte brut dans le profil candidat
+        # 4. Stocker le chemin relatif du CV + texte brut + mapping des colonnes
         existing = supabase_admin.table("candidates").select("id").eq("user_id", user["id"]).limit(1).execute()
-        update_payload = {"cv_text": cv_text, "cv_url": file_path, "ai_extracted_data": extracted_data}
+        update_payload = {
+            "cv_text": cv_text, 
+            "cv_url": file_path, 
+            "ai_extracted_data": extracted_data,
+            "first_name": extracted_data.get("first_name"),
+            "last_name": extracted_data.get("last_name"),
+            "phone": extracted_data.get("phone"),
+            "ville": extracted_data.get("ville"),
+            "birth_date": extracted_data.get("date_naissance"),
+            "linkedin_url": extracted_data.get("linkedin_url"),
+            "diplome": extracted_data.get("diplome"),
+            "etablissement": extracted_data.get("etablissement"),
+            "dernier_poste": extracted_data.get("dernier_poste"),
+            "annees_experience": str(extracted_data.get("annees_experience", "0")),
+            "ai_skills": extracted_data.get("competences", []),
+            "ai_summary": extracted_data.get("resume")
+        }
 
         if existing.data:
             supabase_admin.table("candidates").update(update_payload).eq("user_id", user["id"]).execute()

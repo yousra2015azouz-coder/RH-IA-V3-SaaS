@@ -41,7 +41,7 @@ async def create_approval_request(body: ApprovalRequestCreate, user=Depends(requ
     """Initialise une demande d'approbation avec calculs fiscaux."""
     # 1. Calculer le salaire net
     salary_data = calculate_moroccan_salary(
-        salaire_brut=body.salaire_base,
+        salaire_base_drh=body.salaire_base,
         taux_cimr=body.taux_cimr,
         nb_enfants=body.personnes_a_charge
     )
@@ -63,7 +63,7 @@ async def create_approval_request(body: ApprovalRequestCreate, user=Depends(requ
         "situation_familiale": body.situation_familiale,
         "personnes_a_charge": body.personnes_a_charge,
         "salaire_base": body.salaire_base,
-        "salaire_mensuel_brut": salary_data["salaire_brut"],
+        "salaire_mensuel_brut": salary_data["salaire_mensuel_brut"],
         "salaire_mensuel_net": salary_data["salaire_net"],
         "salaire_annuel_garanti": salary_data["salaire_annuel_garanti"],
         "taux_cimr": body.taux_cimr,
@@ -183,7 +183,7 @@ async def sign_approval(approval_id: str, body: ApprovalSignRequest, user=Depend
     except Exception as e:
         logger.error(f"Erreur mise à jour PDF Approbation : {e}")
 
-    if next_status:
+    if next_status and next_status != "approved":
         await notify_next_approver(user["tenant_id"], approval_id, next_status)
     else:
         # Workflow terminé

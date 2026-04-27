@@ -15,13 +15,16 @@ logger = logging.getLogger(__name__)
 async def process_cv_and_score(
     candidate_id: str,
     tenant_id: str,
-    cv_bytes: bytes,
+    cv_data_input: bytes | str,
     job_requirements: str
 ) -> dict:
     """Pipeline complet: extract → parse → score → update DB."""
     try:
-        # 1. Extraire texte
-        cv_text = await extract_text_from_pdf(cv_bytes)
+        # 1. Extraire texte si on a reçu des bytes, sinon utiliser le texte direct
+        if isinstance(cv_data_input, bytes):
+            cv_text = await extract_text_from_pdf(cv_data_input)
+        else:
+            cv_text = cv_data_input
 
         # 2. Parser CV via GROQ
         cv_data = await parse_cv(cv_text, job_requirements)
