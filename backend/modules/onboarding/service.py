@@ -80,24 +80,34 @@ async def provision_employee_access(employee_id: str, tenant_id: str):
     temp_password = ''.join(secrets.choice(alphabet) for i in range(12))
     
     try:
-        # 3. Créer le compte Auth via Admin API
-        auth_res = supabase_admin.auth.admin.create_user({
-            "email": emp["email"],
-            "password": temp_password,
-            "email_confirm": True
-        })
-        user_id = str(auth_res.user.id)
+        # Vérifier si l'utilisateur existe déjà dans la table users
+        user_res = supabase_admin.table("users").select("id, role").eq("email", emp["email"]).execute()
+        existing_users = get_data(user_res) or []
         
-        # 4. Créer le profil dans la table users
-        supabase_admin.table("users").insert({
-            "id": user_id,
-            "tenant_id": tenant_id,
-            "email": emp["email"],
-            "role": "employe",
-            "first_name": emp["full_name"].split(' ')[0],
-            "last_name": ' '.join(emp["full_name"].split(' ')[1:]),
-            "is_active": True
-        }).execute()
+        if existing_users:
+            user_id = existing_users[0]["id"]
+            # Mettre à jour le rôle vers "employe"
+            supabase_admin.table("users").update({"role": "employe"}).eq("id", user_id).execute()
+            logger.info(f"Compte existant mis à jour vers employé pour {emp['email']}")
+        else:
+            # 3. Créer le compte Auth via Admin API
+            auth_res = supabase_admin.auth.admin.create_user({
+                "email": emp["email"],
+                "password": temp_password,
+                "email_confirm": True
+            })
+            user_id = str(auth_res.user.id)
+            
+            # 4. Créer le profil dans la table users
+            supabase_admin.table("users").insert({
+                "id": user_id,
+                "tenant_id": tenant_id,
+                "email": emp["email"],
+                "role": "employe",
+                "first_name": emp["full_name"].split(' ')[0],
+                "last_name": ' '.join(emp["full_name"].split(' ')[1:]),
+                "is_active": True
+            }).execute()
         
         # 5. Mettre à jour la tâche d'onboarding IT
         supabase_admin.table("onboarding_tasks").update({

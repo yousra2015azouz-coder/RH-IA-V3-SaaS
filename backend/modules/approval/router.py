@@ -215,8 +215,17 @@ async def get_approval_pdf_dynamic(approval_id: str, user=Depends(require_roles(
         cand = approval_data["candidates"]
         approval_data["date_naissance"] = cand.get("birth_date") or cand.get("date_naissance")
         approval_data["email"] = cand.get("email")
+        # Situation Familiale extraite du chatbot
         if not approval_data.get("situation_familiale"):
-            approval_data["situation_familiale"] = cand.get("family_status")
+            approval_data["situation_familiale"] = cand.get("situation_familiale") or cand.get("family_status") or "Non spécifiée"
+        if not approval_data.get("personnes_a_charge"):
+            approval_data["personnes_a_charge"] = cand.get("personnes_a_charge") or 0
+
+    # Date d'embauche = Date de validation du DG
+    if approval_data.get("signed_dg_at"):
+        approval_data["date_embauche"] = approval_data["signed_dg_at"][:10] # Garder uniquement YYYY-MM-DD
+    elif not approval_data.get("date_embauche"):
+        approval_data["date_embauche"] = "En attente de signature DG"
 
     # Reconstruire les signatures depuis les timestamps
     def get_sig_info(role_db):

@@ -96,38 +96,6 @@ async def create_evaluation(body: EvaluationCreate, user=Depends(require_roles(D
     brand_data = get_data(brand_res)
     branding = brand_data[0] if brand_data else {}
 
-    pdf_filename = f"compte_rendu_{body.candidate_id}_{uuid.uuid4().hex[:6]}.pdf"
-    pdf_path = os.path.join("backend/static/documents", pdf_filename)
-    
-    # Préparer données pour le PDF (Doc 5.1)
-    pdf_data = {
-        "candidate_name": candidate_name,
-        "candidate_email": candidate_email,
-        "candidate_phone": candidate_phone,
-        "job_title": job_title,
-        "interviewer_name": f"{user.get('first_name', '')} {user.get('last_name', '')}".strip() or "Directeur",
-        "date": "26/04/2026", # Date fixe pour la démo ou dynamique
-        "criteria": body.criteria,
-        "global_score": body.global_score / 20, # Conversion score 100 -> 5
-        "final_opinion": body.final_opinion,
-        "comments": body.comments or "Aucun commentaire particulier.",
-        "ai_summary": summary,
-        "app_name": branding.get("name"),
-        "logo_url": branding.get("logo_url"),
-        "primary_color": branding.get("primary_color")
-    }
-    
-    try:
-        pdf_bytes = generate_interview_report(pdf_data)
-        with open(pdf_path, "wb") as f:
-            f.write(pdf_bytes)
-        logger.info(f"✅ PDF 5.1 généré : {pdf_path}")
-    except Exception as e:
-        logger.error(f"❌ Erreur génération PDF 5.1 : {e}")
-        # On continue quand même pour ne pas bloquer le workflow, mais le PDF sera manquant
-        
-    pdf_url = f"/generated_docs/{pdf_filename}"
-
     # Publier événement
     await event_bus.publish("evaluation_submitted", {
         "candidate_id": body.candidate_id,
@@ -136,10 +104,12 @@ async def create_evaluation(body: EvaluationCreate, user=Depends(require_roles(D
     }, user["tenant_id"])
 
     ev_data = get_data(ev_res)
+    evaluation_id = ev_data[0]["id"] if ev_data else None
+    
     return {
         "status": "created", 
         "evaluation": ev_data[0] if ev_data else None,
-        "pdf_url": pdf_url
+        "pdf_url": f"/api/v1/documents/interview-report/{evaluation_id}" if evaluation_id else None
     }
 
 

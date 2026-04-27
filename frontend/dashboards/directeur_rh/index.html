@@ -381,6 +381,7 @@
                                         </td>
                                         <td style="padding: 1.2rem; text-align: right; border-radius: 0 12px 12px 0;">
                                             <button onclick="viewCandidate('${c.id}')" class="btn btn-outline btn-sm" style="background: rgba(15,23,42,0.5);">Détails</button>
+                                            ${['evaluation_completed', 'approved', 'hired'].includes(c.pipeline_stage) ? `<button onclick="viewReport51('${c.id}')" class="btn btn-outline btn-sm" style="background: rgba(16,185,129,0.2); color: #10b981; border-color: #10b981; margin-left: 5px;" title="Voir le Compte Rendu (5.1)">📄 Doc 5.1</button>` : ''}
                                         </td>
                                     </tr>
                                 `).join('')}
@@ -389,6 +390,21 @@
                     </div>
                 </div>
             `;
+        }
+
+        async function viewReport51(candidateId) {
+            try {
+                const res = await apiClient.get('/evaluation/candidate/' + candidateId);
+                if (res && res.evaluations && res.evaluations.length > 0) {
+                    // Prendre l'évaluation la plus récente
+                    const evalId = res.evaluations[0].id;
+                    await apiClient.viewPdf('/documents/interview-report/' + evalId);
+                } else {
+                    alert("⚠️ Aucune évaluation trouvée pour ce candidat.");
+                }
+            } catch (err) {
+                alert("Erreur lors de l'ouverture du document: " + err.message);
+            }
         }
 
         function renderEvaluation(container) {
@@ -547,8 +563,11 @@
                 // On rafraîchit la liste derrière
                 await updateWorkspace();
                 
-                // On ouvre le PDF si présent
-                if(res.pdf_url) window.open(res.pdf_url, '_blank');
+                // On ouvre le PDF de manière sécurisée (avec le token d'authentification)
+                if(res.pdf_url) {
+                    const endpoint = res.pdf_url.replace('/api/v1', '');
+                    await apiClient.viewPdf(endpoint);
+                }
                 
                 console.log("✅ Évaluation terminée avec succès.");
             } catch (err) {
@@ -696,8 +715,8 @@
                                         <th>Candidat</th>
                                         <th>Poste</th>
                                         <th>Statut Workflow</th>
-                                        <th>Compte Rendu (5.1)</th>
-                                        <th>Dossier RH (5.2)</th>
+                                        <th>Compte Rendu</th>
+                                        <th>Dossier RH</th>
                                     </tr>
                                 </thead>
                                 <tbody id="approval-list-body">
@@ -736,10 +755,10 @@
                                 </span>
                             </td>
                             <td style="text-align: center;">
-                                ${doc51 ? `<a href="${doc51}" target="_blank" title="Voir Compte Rendu" style="text-decoration:none; font-size:1.2rem;">📄</a>` : '—'}
+                                <a href="javascript:void(0)" onclick="viewReport51('${a.candidate_id}')" title="Voir Compte Rendu" style="text-decoration:none; font-size:1.2rem; transition: transform 0.2s; display: inline-block;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">📄</a>
                             </td>
                             <td style="text-align: center;">
-                                <a href="javascript:void(0)" onclick="apiClient.viewPdf('/approval/${a.id}/pdf')" title="Voir Dossier RH" style="text-decoration:none; font-size:1.2rem;">📂</a>
+                                <a href="javascript:void(0)" onclick="apiClient.viewPdf('/approval/${a.id}/pdf')" title="Voir Dossier RH" style="text-decoration:none; font-size:1.2rem; transition: transform 0.2s; display: inline-block;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">📂</a>
                             </td>
                         </tr>
                     `;
